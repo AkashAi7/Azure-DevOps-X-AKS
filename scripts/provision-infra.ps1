@@ -31,15 +31,15 @@ $ErrorActionPreference = "Stop"
 # ---------------------------------------------------------------------------
 
 # --- Azure ---
-$SubscriptionId   = ""                    # <<< your Azure Subscription ID
-$AksResourceGroup = "rg-workshop-aks"     # <<< resource group that contains your AKS cluster
-$AksName          = "aks-workshop-01"     # <<< your AKS cluster name
-$AcrName          = "workshopacr01"       # <<< your ACR name (without .azurecr.io)
+$SubscriptionId   = "4459723a-46af-46c3-af53-dfb3a134618b"                    # <<< your Azure Subscription ID
+$AksResourceGroup = "AKS_training"     # <<< resource group that contains your AKS cluster
+$AksName          = "testcluster"     # <<< your AKS cluster name
+$AcrName          = "testregistryakash"       # <<< your ACR name (without .azurecr.io)
 
 # --- Azure DevOps ---
-$AzDoOrg          = "https://dev.azure.com/<your-org>"   # <<< your Azure DevOps org URL
+$AzDoOrg          = "https://dev.azure.com/akashdwivedi/AkashDSolutions"   # <<< your Azure DevOps org URL
 $AzDoProject      = "workshop-project"                   # <<< project name to create (or existing)
-$AzDoProjectDesc  = "Fortis Workshop - AKS DevOps project"
+$AzDoProjectDesc  = "Fortis Workshop – AKS DevOps project"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -76,6 +76,11 @@ if ($SubscriptionId -ne "") {
 
 $activeSub = az account show --query "{Name:name, ID:id}" -o tsv
 Success "Using subscription: $activeSub"
+
+Info "Authenticating Azure DevOps CLI..."
+$token = az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv
+$token | az devops login --organization $AzDoOrg
+Success "Azure DevOps CLI authenticated."
 
 # ---------------------------------------------------------------------------
 # Step 2 - Connect kubectl to the existing AKS cluster
@@ -428,7 +433,5 @@ Write-Host "     and manually add 'InventoryAPI-Secrets' linked to Key Vault"
 Write-Host "     (see pipelines/variable-groups/README-variable-groups.md)"
 Write-Host "  2. Create an Azure DevOps service connection to your AKS cluster"
 Write-Host "     (Project Settings -> Service connections -> New -> Kubernetes)"
-Write-Host "  3. Continue with labs/lab-02-ci-pipeline.md"
-Write-Host "============================================================" -ForegroundColor Green
 Write-Host "  3. Continue with labs/lab-02-ci-pipeline.md"
 Write-Host "============================================================" -ForegroundColor Green

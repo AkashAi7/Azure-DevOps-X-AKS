@@ -76,6 +76,11 @@ fi
 ACTIVE_SUB=$(az account show --query "{Name:name, ID:id}" -o tsv)
 success "Using subscription: $ACTIVE_SUB"
 
+info "Authenticating Azure DevOps CLI..."
+ADO_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv)
+echo "$ADO_TOKEN" | az devops login --organization "$AZDO_ORG"
+success "Azure DevOps CLI authenticated."
+
 # ---------------------------------------------------------------------------
 # Step 2 - Connect kubectl to the existing AKS cluster
 # ---------------------------------------------------------------------------
