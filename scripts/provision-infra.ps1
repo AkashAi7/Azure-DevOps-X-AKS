@@ -1,6 +1,6 @@
-# =============================================================================
+﻿# =============================================================================
 # provision-infra.ps1
-# Fortis Workshop – Workshop-day setup for teams with an existing AKS cluster
+# Fortis Workshop - Workshop-day setup for teams with an existing AKS cluster
 #
 # What this script does:
 #   1. Logs in to Azure and sets the correct subscription
@@ -8,7 +8,7 @@
 #   3. Creates Kubernetes namespaces: dev, staging, production
 #   4. Creates the Azure DevOps project (if it doesn't exist)
 #   5. Creates variable groups: InventoryAPI-Common and InventoryAPI-Environments
-#   6. Seeds Azure Boards  – Epic → Features → User Stories → Tasks + Bugs
+#   6. Seeds Azure Boards  - Epic -> Features -> User Stories -> Tasks + Bugs
 #   7. Initialises the default Git repo and pushes workshop source code
 #   8. Imports CI and CD pipelines from the pipelines/ folder
 #   9. Creates an Artifacts feed: inventory-api-packages
@@ -27,7 +27,7 @@
 $ErrorActionPreference = "Stop"
 
 # ---------------------------------------------------------------------------
-# CONFIGURATION – fill in every value marked  <<<  before running
+# CONFIGURATION - fill in every value marked  <<<  before running
 # ---------------------------------------------------------------------------
 
 # --- Azure ---
@@ -39,7 +39,7 @@ $AcrName          = "workshopacr01"       # <<< your ACR name (without .azurecr.
 # --- Azure DevOps ---
 $AzDoOrg          = "https://dev.azure.com/<your-org>"   # <<< your Azure DevOps org URL
 $AzDoProject      = "workshop-project"                   # <<< project name to create (or existing)
-$AzDoProjectDesc  = "Fortis Workshop – AKS DevOps project"
+$AzDoProjectDesc  = "Fortis Workshop - AKS DevOps project"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -49,7 +49,7 @@ function Success ($msg) { Write-Host "[DONE]  $msg" -ForegroundColor Green }
 function Warn    ($msg) { Write-Host "[WARN]  $msg" -ForegroundColor Yellow }
 
 # ---------------------------------------------------------------------------
-# Step 0 – Verify tooling
+# Step 0 - Verify tooling
 # ---------------------------------------------------------------------------
 Info "Checking required tools..."
 if (-not (Get-Command az      -ErrorAction SilentlyContinue)) { throw "Azure CLI not found. Install from https://aka.ms/installazurecliwindows" }
@@ -68,7 +68,7 @@ if ($extList -notcontains "azure-devops") {
 }
 
 # ---------------------------------------------------------------------------
-# Step 1 – Azure login & subscription
+# Step 1 - Azure login & subscription
 # ---------------------------------------------------------------------------
 Info "Logging in to Azure..."
 az login --output none
@@ -81,7 +81,7 @@ $activeSub = az account show --query "{Name:name, ID:id}" -o tsv
 Success "Using subscription: $activeSub"
 
 # ---------------------------------------------------------------------------
-# Step 2 – Connect kubectl to the existing AKS cluster
+# Step 2 - Connect kubectl to the existing AKS cluster
 # ---------------------------------------------------------------------------
 Info "Fetching credentials for AKS cluster: $AksName..."
 az aks get-credentials `
@@ -95,7 +95,7 @@ kubectl get nodes
 # Expect: all nodes in Ready state before continuing
 
 # ---------------------------------------------------------------------------
-# Step 3 – Kubernetes namespaces
+# Step 3 - Kubernetes namespaces
 # ---------------------------------------------------------------------------
 Info "Applying namespace manifests (dev, staging, production)..."
 kubectl apply -f k8s/base/namespace.yaml
@@ -105,7 +105,7 @@ Write-Host ""
 kubectl get namespaces | Select-String -Pattern "NAME|dev|staging|production"
 
 # ---------------------------------------------------------------------------
-# Step 4 – Azure DevOps project
+# Step 4 - Azure DevOps project
 # ---------------------------------------------------------------------------
 Info "Configuring Azure DevOps CLI defaults..."
 az devops configure --defaults organization=$AzDoOrg
@@ -113,7 +113,7 @@ az devops configure --defaults organization=$AzDoOrg
 # Check if the project already exists
 $existingProject = az devops project show --project $AzDoProject --output none 2>&1
 if ($LASTEXITCODE -eq 0) {
-    Warn "Azure DevOps project '$AzDoProject' already exists – skipping creation."
+    Warn "Azure DevOps project '$AzDoProject' already exists - skipping creation."
 } else {
     Info "Creating Azure DevOps project: $AzDoProject..."
     az devops project create `
@@ -129,7 +129,7 @@ if ($LASTEXITCODE -eq 0) {
 az devops configure --defaults project=$AzDoProject
 
 # ---------------------------------------------------------------------------
-# Step 5 – Variable Groups
+# Step 5 - Variable Groups
 # ---------------------------------------------------------------------------
 
 # --- Group 1: InventoryAPI-Common ---
@@ -173,9 +173,9 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # ---------------------------------------------------------------------------
-# Step 6 – Seed Azure Boards
+# Step 6 - Seed Azure Boards
 # ---------------------------------------------------------------------------
-Info "Seeding Azure Boards (Epic → Features → Stories → Tasks + Bugs)..."
+Info "Seeding Azure Boards (Epic -> Features -> Stories -> Tasks + Bugs)..."
 
 # Helper: create a work item and return its ID
 function New-WorkItem ($type, $title, $parentId = $null, $description = "") {
@@ -200,8 +200,8 @@ function New-WorkItem ($type, $title, $parentId = $null, $description = "") {
 $epicId = New-WorkItem "Epic" "Containerize & Deploy InventoryAPI to AKS" -description "End-to-end DevOps pipeline for the InventoryAPI microservice covering CI, CD, and multi-environment promotion on AKS."
 Success "Created Epic #$epicId"
 
-# Feature 1 – CI Pipeline
-$f1 = New-WorkItem "Feature" "CI Pipeline – Build, Test & Publish" $epicId
+# Feature 1 - CI Pipeline
+$f1 = New-WorkItem "Feature" "CI Pipeline - Build, Test & Publish" $epicId
 $s1 = New-WorkItem "User Story" "As a developer, I can trigger an automated build on every commit" $f1
 New-WorkItem "Task" "Create ci-pipeline.yml in Azure DevOps" $s1 | Out-Null
 New-WorkItem "Task" "Add ESLint lint stage" $s1 | Out-Null
@@ -209,24 +209,24 @@ New-WorkItem "Task" "Add Jest unit-test stage with coverage threshold" $s1 | Out
 New-WorkItem "Task" "Build Docker image and push to ACR" $s1 | Out-Null
 Success "Created Feature 1 (CI Pipeline) and child items."
 
-# Feature 2 – CD Pipeline
-$f2 = New-WorkItem "Feature" "CD Pipeline – Multi-Environment Deployment" $epicId
-$s2 = New-WorkItem "User Story" "As an ops engineer, I can promote a release through dev → staging → production" $f2
+# Feature 2 - CD Pipeline
+$f2 = New-WorkItem "Feature" "CD Pipeline - Multi-Environment Deployment" $epicId
+$s2 = New-WorkItem "User Story" "As an ops engineer, I can promote a release through dev -> staging -> production" $f2
 New-WorkItem "Task" "Deploy to dev namespace on every successful CI run" $s2 | Out-Null
 New-WorkItem "Task" "Add manual approval gate before staging deployment" $s2 | Out-Null
 New-WorkItem "Task" "Add production gate with rollback strategy" $s2 | Out-Null
 New-WorkItem "Task" "Configure HPA and resource limits per environment" $s2 | Out-Null
 Success "Created Feature 2 (CD Pipeline) and child items."
 
-# Feature 3 – Observability
-$f3 = New-WorkItem "Feature" "Observability – Health, Metrics & Alerts" $epicId
+# Feature 3 - Observability
+$f3 = New-WorkItem "Feature" "Observability - Health, Metrics & Alerts" $epicId
 $s3 = New-WorkItem "User Story" "As an SRE, I can monitor the API via Prometheus metrics and liveness probes" $f3
 New-WorkItem "Task" "Verify /health and /ready endpoints respond correctly" $s3 | Out-Null
 New-WorkItem "Task" "Scrape /metrics with Prometheus" $s3 | Out-Null
 New-WorkItem "Task" "Set up Azure Monitor alert for pod restarts" $s3 | Out-Null
 Success "Created Feature 3 (Observability) and child items."
 
-# Feature 4 – GitHub Copilot Integration
+# Feature 4 - GitHub Copilot Integration
 $f4 = New-WorkItem "Feature" "GitHub Copilot Agentic DevOps" $epicId
 $s4 = New-WorkItem "User Story" "As a developer, I can use GitHub Copilot to generate and explain pipeline YAML" $f4
 New-WorkItem "Task" "Use Copilot to generate a Kubernetes deployment manifest" $s4 | Out-Null
@@ -236,11 +236,11 @@ Success "Created Feature 4 (Copilot) and child items."
 
 # Bugs
 $b1 = New-WorkItem "Bug" "Health endpoint returns hardcoded version string" $epicId -description "APP_VERSION env var is not injected at deploy time so /health always returns 1.0.0 regardless of the image tag."
-$b2 = New-WorkItem "Bug" "POST /api/products accepts empty product name" $epicId -description "Validation is missing on the name field – an empty string is accepted and stored in the in-memory array."
+$b2 = New-WorkItem "Bug" "POST /api/products accepts empty product name" $epicId -description "Validation is missing on the name field - an empty string is accepted and stored in the in-memory array."
 Success "Created 2 sample Bugs (#$b1, #$b2)."
 
 # ---------------------------------------------------------------------------
-# Step 7 – Initialise Git repo and push workshop source
+# Step 7 - Initialise Git repo and push workshop source
 # ---------------------------------------------------------------------------
 Info "Initialising the default Azure DevOps Git repository..."
 
@@ -283,11 +283,11 @@ if ($repoUrl) {
         Warn "Git push failed. Authenticate with 'git credential-manager' or push manually: git push azdo HEAD:main"
     }
 } else {
-    Warn "Could not resolve repo URL for '$AzDoProject' – push to Azure Repos manually."
+    Warn "Could not resolve repo URL for '$AzDoProject' - push to Azure Repos manually."
 }
 
 # ---------------------------------------------------------------------------
-# Step 8 – Import pipelines
+# Step 8 - Import pipelines
 # ---------------------------------------------------------------------------
 Info "Importing CI pipeline..."
 az pipelines create `
@@ -323,13 +323,13 @@ az pipelines create `
 if ($LASTEXITCODE -eq 0) { Success "Multi-env pipeline imported." } else { Warn "Multi-env pipeline import failed or already exists." }
 
 # ---------------------------------------------------------------------------
-# Step 9 – Artifacts feed
+# Step 9 - Artifacts feed
 # ---------------------------------------------------------------------------
 Info "Creating Artifacts feed: inventory-api-packages..."
 # Check if the feed already exists before trying to create
 $feedCheck = az artifacts feed show --feed "inventory-api-packages" --output none 2>&1
 if ($LASTEXITCODE -eq 0) {
-    Warn "Artifacts feed 'inventory-api-packages' already exists – skipping."
+    Warn "Artifacts feed 'inventory-api-packages' already exists - skipping."
 } else {
     az artifacts feed create `
         --name "inventory-api-packages" `
@@ -337,18 +337,18 @@ if ($LASTEXITCODE -eq 0) {
     if ($LASTEXITCODE -eq 0) {
         Success "Artifacts feed 'inventory-api-packages' created."
     } else {
-        Warn "Could not create Artifacts feed – create 'inventory-api-packages' manually in Azure Artifacts."
+        Warn "Could not create Artifacts feed - create 'inventory-api-packages' manually in Azure Artifacts."
     }
 }
 
 # ---------------------------------------------------------------------------
-# Step 10 – Test Plans
+# Step 10 - Test Plans
 # ---------------------------------------------------------------------------
 Info "Creating Test Plan with sample test cases..."
 
 # Create the Test Plan
 $testPlanJson = az testplan create `
-    --name "InventoryAPI – Workshop Test Plan" `
+    --name "InventoryAPI - Workshop Test Plan" `
     --output json 2>$null | ConvertFrom-Json
 
 if ($testPlanJson) {
@@ -360,7 +360,7 @@ if ($testPlanJson) {
         --plan-id $planId `
         --query "[0].id" -o tsv 2>$null
 
-    # Suite 1 – API Smoke Tests
+    # Suite 1 - API Smoke Tests
     $suite1Json = az testplan suite create `
         --plan-id $planId `
         --parent-suite-id $rootSuiteId `
@@ -381,7 +381,7 @@ if ($testPlanJson) {
     }
     Success "Suite 'API Smoke Tests' created with 5 test cases."
 
-    # Suite 2 – Pipeline Validation
+    # Suite 2 - Pipeline Validation
     $suite2Json = az testplan suite create `
         --plan-id $planId `
         --parent-suite-id $rootSuiteId `
@@ -403,7 +403,7 @@ if ($testPlanJson) {
     Success "Suite 'Pipeline Validation' created with 5 test cases."
 
 } else {
-    Warn "Could not create Test Plan – create 'InventoryAPI Workshop Test Plan' manually in Azure Test Plans."
+    Warn "Could not create Test Plan - create 'InventoryAPI Workshop Test Plan' manually in Azure Test Plans."
 }
 
 # ---------------------------------------------------------------------------
@@ -430,7 +430,7 @@ Write-Host "  1. Go to $AzDoOrg/$AzDoProject/_library"
 Write-Host "     and manually add 'InventoryAPI-Secrets' linked to Key Vault"
 Write-Host "     (see pipelines/variable-groups/README-variable-groups.md)"
 Write-Host "  2. Create an Azure DevOps service connection to your AKS cluster"
-Write-Host "     (Project Settings → Service connections → New → Kubernetes)"
+Write-Host "     (Project Settings -> Service connections -> New -> Kubernetes)"
 Write-Host "  3. Continue with labs/lab-02-ci-pipeline.md"
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host "  3. Continue with labs/lab-02-ci-pipeline.md"

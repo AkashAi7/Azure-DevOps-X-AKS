@@ -1,7 +1,7 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # =============================================================================
 # provision-infra.sh
-# Fortis Workshop – Workshop-day setup for teams with an existing AKS cluster
+# Fortis Workshop - Workshop-day setup for teams with an existing AKS cluster
 #
 # What this script does:
 #   1. Logs in to Azure and sets the correct subscription
@@ -9,7 +9,7 @@
 #   3. Creates Kubernetes namespaces: dev, staging, production
 #   4. Creates the Azure DevOps project (if it doesn't exist)
 #   5. Creates variable groups: InventoryAPI-Common and InventoryAPI-Environments
-#   6. Seeds Azure Boards  – Epic → Features → User Stories → Tasks + Bugs
+#   6. Seeds Azure Boards  - Epic -> Features -> User Stories -> Tasks + Bugs
 #   7. Initialises the default Git repo and pushes workshop source code
 #   8. Imports CI and CD pipelines from the pipelines/ folder
 #   9. Creates an Artifacts feed: inventory-api-packages
@@ -28,7 +28,7 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# CONFIGURATION – fill in every value marked  <<<  before running
+# CONFIGURATION - fill in every value marked  <<<  before running
 # ---------------------------------------------------------------------------
 
 # --- Azure ---
@@ -40,7 +40,7 @@ ACR_NAME="workshopacr01"                    # <<< your ACR name (without .azurec
 # --- Azure DevOps ---
 AZDO_ORG="https://dev.azure.com/<your-org>" # <<< your Azure DevOps org URL
 AZDO_PROJECT="workshop-project"             # <<< project name to create (or existing)
-AZDO_PROJECT_DESC="Fortis Workshop – AKS DevOps project"
+AZDO_PROJECT_DESC="Fortis Workshop - AKS DevOps project"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -51,7 +51,7 @@ warn()    { echo -e "\033[1;33m[WARN]\033[0m  $*"; }
 error()   { echo -e "\033[1;31m[ERROR]\033[0m $*" >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
-# Step 0 – Verify tooling
+# Step 0 - Verify tooling
 # ---------------------------------------------------------------------------
 info "Checking required tools..."
 command -v az      >/dev/null 2>&1 || error "Azure CLI not found. Install from https://aka.ms/installazurecliwindows"
@@ -64,7 +64,7 @@ if ! az extension show --name azure-devops &>/dev/null; then
 fi
 
 # ---------------------------------------------------------------------------
-# Step 1 – Azure login & subscription
+# Step 1 - Azure login & subscription
 # ---------------------------------------------------------------------------
 info "Logging in to Azure..."
 az login --output none
@@ -77,7 +77,7 @@ ACTIVE_SUB=$(az account show --query "{Name:name, ID:id}" -o tsv)
 success "Using subscription: $ACTIVE_SUB"
 
 # ---------------------------------------------------------------------------
-# Step 2 – Connect kubectl to the existing AKS cluster
+# Step 2 - Connect kubectl to the existing AKS cluster
 # ---------------------------------------------------------------------------
 info "Fetching credentials for AKS cluster: $AKS_NAME..."
 az aks get-credentials \
@@ -91,7 +91,7 @@ kubectl get nodes
 # Expect: all nodes in Ready state before continuing
 
 # ---------------------------------------------------------------------------
-# Step 3 – Kubernetes namespaces
+# Step 3 - Kubernetes namespaces
 # ---------------------------------------------------------------------------
 info "Applying namespace manifests (dev, staging, production)..."
 kubectl apply -f k8s/base/namespace.yaml
@@ -101,14 +101,14 @@ echo ""
 kubectl get namespaces | grep -E "NAME|dev|staging|production"
 
 # ---------------------------------------------------------------------------
-# Step 4 – Azure DevOps project
+# Step 4 - Azure DevOps project
 # ---------------------------------------------------------------------------
 info "Configuring Azure DevOps CLI defaults..."
 az devops configure --defaults organization="$AZDO_ORG"
 
 # Check if the project already exists
 if az devops project show --project "$AZDO_PROJECT" --output none 2>/dev/null; then
-  warn "Azure DevOps project '$AZDO_PROJECT' already exists – skipping creation."
+  warn "Azure DevOps project '$AZDO_PROJECT' already exists - skipping creation."
 else
   info "Creating Azure DevOps project: $AZDO_PROJECT..."
   az devops project create \
@@ -124,7 +124,7 @@ fi
 az devops configure --defaults project="$AZDO_PROJECT"
 
 # ---------------------------------------------------------------------------
-# Step 5 – Variable Groups
+# Step 5 - Variable Groups
 # ---------------------------------------------------------------------------
 ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
 SUB_ID=$(az account show --query id -o tsv)
@@ -163,9 +163,9 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Step 6 – Seed Azure Boards
+# Step 6 - Seed Azure Boards
 # ---------------------------------------------------------------------------
-info "Seeding Azure Boards (Epic → Features → Stories → Tasks + Bugs)..."
+info "Seeding Azure Boards (Epic -> Features -> Stories -> Tasks + Bugs)..."
 
 # Helper: create a work item, link to parent, return its ID
 new_work_item() {
@@ -192,8 +192,8 @@ EPIC_ID=$(new_work_item "Epic" "Containerize & Deploy InventoryAPI to AKS" "" \
   "End-to-end DevOps pipeline for the InventoryAPI microservice covering CI, CD, and multi-environment promotion on AKS.")
 success "Created Epic #$EPIC_ID"
 
-# Feature 1 – CI Pipeline
-F1=$(new_work_item "Feature" "CI Pipeline – Build, Test & Publish" "$EPIC_ID")
+# Feature 1 - CI Pipeline
+F1=$(new_work_item "Feature" "CI Pipeline - Build, Test & Publish" "$EPIC_ID")
 S1=$(new_work_item "User Story" "As a developer, I can trigger an automated build on every commit" "$F1")
 new_work_item "Task" "Create ci-pipeline.yml in Azure DevOps"               "$S1" >/dev/null
 new_work_item "Task" "Add ESLint lint stage"                                 "$S1" >/dev/null
@@ -201,24 +201,24 @@ new_work_item "Task" "Add Jest unit-test stage with coverage threshold"      "$S
 new_work_item "Task" "Build Docker image and push to ACR"                    "$S1" >/dev/null
 success "Created Feature 1 (CI Pipeline) and child items."
 
-# Feature 2 – CD Pipeline
-F2=$(new_work_item "Feature" "CD Pipeline – Multi-Environment Deployment" "$EPIC_ID")
-S2=$(new_work_item "User Story" "As an ops engineer, I can promote a release through dev → staging → production" "$F2")
+# Feature 2 - CD Pipeline
+F2=$(new_work_item "Feature" "CD Pipeline - Multi-Environment Deployment" "$EPIC_ID")
+S2=$(new_work_item "User Story" "As an ops engineer, I can promote a release through dev -> staging -> production" "$F2")
 new_work_item "Task" "Deploy to dev namespace on every successful CI run"    "$S2" >/dev/null
 new_work_item "Task" "Add manual approval gate before staging deployment"    "$S2" >/dev/null
 new_work_item "Task" "Add production gate with rollback strategy"            "$S2" >/dev/null
 new_work_item "Task" "Configure HPA and resource limits per environment"     "$S2" >/dev/null
 success "Created Feature 2 (CD Pipeline) and child items."
 
-# Feature 3 – Observability
-F3=$(new_work_item "Feature" "Observability – Health, Metrics & Alerts" "$EPIC_ID")
+# Feature 3 - Observability
+F3=$(new_work_item "Feature" "Observability - Health, Metrics & Alerts" "$EPIC_ID")
 S3=$(new_work_item "User Story" "As an SRE, I can monitor the API via Prometheus metrics and liveness probes" "$F3")
 new_work_item "Task" "Verify /health and /ready endpoints respond correctly" "$S3" >/dev/null
 new_work_item "Task" "Scrape /metrics with Prometheus"                       "$S3" >/dev/null
 new_work_item "Task" "Set up Azure Monitor alert for pod restarts"           "$S3" >/dev/null
 success "Created Feature 3 (Observability) and child items."
 
-# Feature 4 – GitHub Copilot Integration
+# Feature 4 - GitHub Copilot Integration
 F4=$(new_work_item "Feature" "GitHub Copilot Agentic DevOps" "$EPIC_ID")
 S4=$(new_work_item "User Story" "As a developer, I can use GitHub Copilot to generate and explain pipeline YAML" "$F4")
 new_work_item "Task" "Use Copilot to generate a Kubernetes deployment manifest" "$S4" >/dev/null
@@ -230,11 +230,11 @@ success "Created Feature 4 (Copilot) and child items."
 B1=$(new_work_item "Bug" "Health endpoint returns hardcoded version string" "$EPIC_ID" \
   "APP_VERSION env var is not injected at deploy time so /health always returns 1.0.0 regardless of the image tag.")
 B2=$(new_work_item "Bug" "POST /api/products accepts empty product name" "$EPIC_ID" \
-  "Validation is missing on the name field – an empty string is accepted and stored in the in-memory array.")
+  "Validation is missing on the name field - an empty string is accepted and stored in the in-memory array.")
 success "Created 2 sample Bugs (#$B1, #$B2)."
 
 # ---------------------------------------------------------------------------
-# Step 7 – Initialise Git repo and push workshop source
+# Step 7 - Initialise Git repo and push workshop source
 # ---------------------------------------------------------------------------
 info "Initialising the default Azure DevOps Git repository..."
 
@@ -269,11 +269,11 @@ if [[ -n "$REPO_URL" ]]; then
     warn "Git push failed. Authenticate with 'git credential-manager' or push manually: git push azdo HEAD:main"
   fi
 else
-  warn "Could not resolve repo URL for '$AZDO_PROJECT' – push to Azure Repos manually."
+  warn "Could not resolve repo URL for '$AZDO_PROJECT' - push to Azure Repos manually."
 fi
 
 # ---------------------------------------------------------------------------
-# Step 8 – Import pipelines
+# Step 8 - Import pipelines
 # ---------------------------------------------------------------------------
 info "Importing CI pipeline..."
 if az pipelines create \
@@ -318,26 +318,26 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# Step 9 – Artifacts feed
+# Step 9 - Artifacts feed
 # ---------------------------------------------------------------------------
 info "Creating Artifacts feed: inventory-api-packages..."
 if az artifacts feed show --feed "inventory-api-packages" --output none 2>/dev/null; then
-  warn "Artifacts feed 'inventory-api-packages' already exists – skipping."
+  warn "Artifacts feed 'inventory-api-packages' already exists - skipping."
 else
   if az artifacts feed create --name "inventory-api-packages" --output none 2>/dev/null; then
     success "Artifacts feed 'inventory-api-packages' created."
   else
-    warn "Could not create Artifacts feed – create 'inventory-api-packages' manually in Azure Artifacts."
+    warn "Could not create Artifacts feed - create 'inventory-api-packages' manually in Azure Artifacts."
   fi
 fi
 
 # ---------------------------------------------------------------------------
-# Step 10 – Test Plans
+# Step 10 - Test Plans
 # ---------------------------------------------------------------------------
 info "Creating Test Plan with sample test cases..."
 
 PLAN_ID=$(az testplan create \
-  --name "InventoryAPI – Workshop Test Plan" \
+  --name "InventoryAPI - Workshop Test Plan" \
   --output json 2>/dev/null \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null || true)
 
@@ -348,7 +348,7 @@ if [[ -n "$PLAN_ID" ]]; then
     --plan-id "$PLAN_ID" \
     --query "[0].id" -o tsv 2>/dev/null)
 
-  # Suite 1 – API Smoke Tests
+  # Suite 1 - API Smoke Tests
   S1_ID=$(az testplan suite create \
     --plan-id "$PLAN_ID" \
     --parent-suite-id "$ROOT_SUITE_ID" \
@@ -370,7 +370,7 @@ if [[ -n "$PLAN_ID" ]]; then
   done
   success "Suite 'API Smoke Tests' created with 5 test cases."
 
-  # Suite 2 – Pipeline Validation
+  # Suite 2 - Pipeline Validation
   S2_ID=$(az testplan suite create \
     --plan-id "$PLAN_ID" \
     --parent-suite-id "$ROOT_SUITE_ID" \
@@ -393,7 +393,7 @@ if [[ -n "$PLAN_ID" ]]; then
   success "Suite 'Pipeline Validation' created with 5 test cases."
 
 else
-  warn "Could not create Test Plan – create 'InventoryAPI Workshop Test Plan' manually in Azure Test Plans."
+  warn "Could not create Test Plan - create 'InventoryAPI Workshop Test Plan' manually in Azure Test Plans."
 fi
 
 # ---------------------------------------------------------------------------
@@ -420,6 +420,6 @@ echo "  1. Go to $AZDO_ORG/$AZDO_PROJECT/_library"
 echo "     and manually add 'InventoryAPI-Secrets' linked to Key Vault"
 echo "     (see pipelines/variable-groups/README-variable-groups.md)"
 echo "  2. Create an Azure DevOps service connection to your AKS cluster"
-echo "     (Project Settings → Service connections → New → Kubernetes)"
+echo "     (Project Settings -> Service connections -> New -> Kubernetes)"
 echo "  3. Continue with labs/lab-02-ci-pipeline.md"
 echo "============================================================"
