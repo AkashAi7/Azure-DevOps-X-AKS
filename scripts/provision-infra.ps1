@@ -37,7 +37,7 @@ $AksName          = "testcluster"     # <<< your AKS cluster name
 $AcrName          = "testregistryakash"       # <<< your ACR name (without .azurecr.io)
 
 # --- Azure DevOps ---
-$AzDoOrg          = "https://dev.azure.com/akashdwivedi/AkashDSolutions"   # <<< your Azure DevOps org URL
+$AzDoOrg          = "https://dev.azure.com/akashdwivedi"   # <<< org URL only - no project name (check: dev.azure.com/<orgname>)
 $AzDoProject      = "workshop-project"                   # <<< project name to create (or existing)
 $AzDoProjectDesc  = "Fortis Workshop – AKS DevOps project"
 
