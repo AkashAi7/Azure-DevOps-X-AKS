@@ -1,0 +1,340 @@
+# ============================================================================
+# CD Pipeline — InventoryAPI
+# Triggered by: successful CI pipeline run on main branch
+# Stages: Deploy Dev → [gate] → Deploy Staging → [approval] → Deploy Production
+# ============================================================================
+
+trigger: none    # CD is triggered by CI pipeline resource, not direct push
+
+# ─── Pipeline Resource: trigger CD when CI completes ─────────────────────────
+resources:
+  pipelines:
+    - pipeline: ci-pipeline        # Alias used below with $[...]
+      source: 'InventoryAPI-CI'    # Must match the name of your CI pipeline
+      trigger:
+        branches:
+          include:
+            - main
+
+# ─── Variables ───────────────────────────────────────────────────────────────
+variables:
+  imageName: 'inventory-api'
+  - group: InventoryAPI-Common        # ACR_NAME, AKS_RESOURCE_GROUP, AKS_CLUSTER_NAME
+  - group: InventoryAPI-Secrets
+
+# ─── Stages ──────────────────────────────────────────────────────────────────
+stages:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 1: Deploy to DEV
+# ─────────────────────────────────────────────────────────────────────────────
+- stage: DeployDev
+  displayName: '🚀 Deploy → DEV'
+  variables:
+    environmentName: 'dev'
+    namespace: 'dev'
+    replicas: '1'
+
+  jobs:
+  - deployment: DeployToDev
+    displayName: 'Deploy to AKS Dev Namespace'
+    environment: 'InventoryAPI-Dev'     # Defined in Azure DevOps Environments
+
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download image info'
+            inputs:
+              buildType: 'specific'
+              project: '$(System.TeamProjectId)'
+              definition: '$(resources.pipeline.ci-pipeline.pipelineID)'
+              buildVersionToDownload: 'specific'
+              pipelineId: '$(resources.pipeline.ci-pipeline.runID)'
+              artifactName: 'image-info'
+              targetPath: '$(Pipeline.Workspace)/image-info'
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download K8s manifests'
+            inputs:
+              buildType: 'specific'
+              project: '$(System.TeamProjectId)'
+              definition: '$(resources.pipeline.ci-pipeline.pipelineID)'
+              buildVersionToDownload: 'specific'
+              pipelineId: '$(resources.pipeline.ci-pipeline.runID)'
+              artifactName: 'k8s-manifests'
+              targetPath: '$(Pipeline.Workspace)/k8s'
+
+          - script: |
+              IMAGE_TAG=$(cat $(Pipeline.Workspace)/image-info/image-tag.txt)
+              echo "Deploying image tag: ${IMAGE_TAG}"
+              echo "##vso[task.setvariable variable=IMAGE_TAG]${IMAGE_TAG}"
+            displayName: 'Read image tag'
+
+          - task: KubernetesManifest@1
+            displayName: 'Create/update ConfigMap (dev)'
+            inputs:
+              action: 'deploy'
+              connectionType: 'azureResourceManager'
+              azureSubscriptionConnection: 'AzureRM-ServiceConnection'
+              azureResourceGroup: '$(AKS_RESOURCE_GROUP)'
+              kubernetesCluster: '$(AKS_CLUSTER_NAME)'
+              namespace: '$(namespace)'
+              manifests: '$(Pipeline.Workspace)/k8s/overlays/dev/deployment-dev.yaml'
+
+          - task: KubernetesManifest@1
+            displayName: 'Deploy to dev namespace'
+            inputs:
+              action: 'deploy'
+              connectionType: 'azureResourceManager'
+              azureSubscriptionConnection: 'AzureRM-ServiceConnection'
+              azureResourceGroup: '$(AKS_RESOURCE_GROUP)'
+              kubernetesCluster: '$(AKS_CLUSTER_NAME)'
+              namespace: '$(namespace)'
+              manifests: |
+                $(Pipeline.Workspace)/k8s/base/deployment.yaml
+                $(Pipeline.Workspace)/k8s/overlays/dev/deployment-dev.yaml
+              containers: '$(ACR_NAME).azurecr.io/$(imageName):$(IMAGE_TAG)'
+              imagePullSecrets: 'acr-pull-secret'
+
+          - task: Kubernetes@1
+            displayName: 'Wait for rollout to complete'
+            inputs:
+              connectionType: 'azureResourceManager'
+              azureSubscriptionEndpoint: 'AzureRM-ServiceConnection'
+              azureResourceGroup: '$(AKS_RESOURCE_GROUP)'
+              kubernetesCluster: '$(AKS_CLUSTER_NAME)'
+              namespace: '$(namespace)'
+              command: 'rollout'
+              arguments: 'status deployment/inventory-api --timeout=5m'
+
+          - script: |
+              echo "✅ Dev deployment complete: $(ACR_NAME).azurecr.io/$(imageName):$(IMAGE_TAG)"
+            displayName: 'Deployment summary'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 2: Deploy to STAGING
+# Gate: dev must be healthy for 5 minutes before promoting
+# ─────────────────────────────────────────────────────────────────────────────
+- stage: DeployStaging
+  displayName: '🚀 Deploy → STAGING'
+  dependsOn: DeployDev
+  condition: succeeded('DeployDev')
+  variables:
+    environmentName: 'staging'
+    namespace: 'staging'
+    replicas: '2'
+
+  jobs:
+  - deployment: DeployToStaging
+    displayName: 'Deploy to AKS Staging Namespace'
+    environment: 'InventoryAPI-Staging'    # Has a 5-minute delay gate configured
+
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download image info'
+            inputs:
+              buildType: 'specific'
+              project: '$(System.TeamProjectId)'
+              definition: '$(resources.pipeline.ci-pipeline.pipelineID)'
+              buildVersionToDownload: 'specific'
+              pipelineId: '$(resources.pipeline.ci-pipeline.runID)'
+              artifactName: 'image-info'
+              targetPath: '$(Pipeline.Workspace)/image-info'
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download K8s manifests'
+            inputs:
+              buildType: 'specific'
+              project: '$(System.TeamProjectId)'
+              definition: '$(resources.pipeline.ci-pipeline.pipelineID)'
+              buildVersionToDownload: 'specific'
+              pipelineId: '$(resources.pipeline.ci-pipeline.runID)'
+              artifactName: 'k8s-manifests'
+              targetPath: '$(Pipeline.Workspace)/k8s'
+
+          - script: |
+              IMAGE_TAG=$(cat $(Pipeline.Workspace)/image-info/image-tag.txt)
+              echo "##vso[task.setvariable variable=IMAGE_TAG]${IMAGE_TAG}"
+            displayName: 'Read image tag'
+
+          - task: KubernetesManifest@1
+            displayName: 'Deploy to staging namespace'
+            inputs:
+              action: 'deploy'
+              connectionType: 'azureResourceManager'
+              azureSubscriptionConnection: 'AzureRM-ServiceConnection'
+              azureResourceGroup: '$(AKS_RESOURCE_GROUP)'
+              kubernetesCluster: '$(AKS_CLUSTER_NAME)'
+              namespace: '$(namespace)'
+              manifests: |
+                $(Pipeline.Workspace)/k8s/base/deployment.yaml
+                $(Pipeline.Workspace)/k8s/overlays/staging/deployment-staging.yaml
+              containers: '$(ACR_NAME).azurecr.io/$(imageName):$(IMAGE_TAG)'
+              imagePullSecrets: 'acr-pull-secret'
+
+          - task: Kubernetes@1
+            displayName: 'Wait for rollout'
+            inputs:
+              connectionType: 'azureResourceManager'
+              azureSubscriptionEndpoint: 'AzureRM-ServiceConnection'
+              azureResourceGroup: '$(AKS_RESOURCE_GROUP)'
+              kubernetesCluster: '$(AKS_CLUSTER_NAME)'
+              namespace: '$(namespace)'
+              command: 'rollout'
+              arguments: 'status deployment/inventory-api --timeout=5m'
+
+          # Run smoke tests against staging
+          - script: |
+              # Wait for ingress/service to be ready
+              sleep 20
+              STAGING_URL="http://staging.inventory-api.workshop.local"
+              echo "Running smoke tests against ${STAGING_URL}"
+              
+              # Health check
+              HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${STAGING_URL}/health)
+              if [ "${HTTP_STATUS}" != "200" ]; then
+                echo "❌ Health check failed with HTTP ${HTTP_STATUS}"
+                exit 1
+              fi
+              echo "✅ Health check passed"
+              
+              # Products API check
+              HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${STAGING_URL}/api/products)
+              if [ "${HTTP_STATUS}" != "200" ]; then
+                echo "❌ Products API check failed with HTTP ${HTTP_STATUS}"
+                exit 1
+              fi
+              echo "✅ Products API check passed"
+              echo "🎉 All smoke tests passed for staging"
+            displayName: 'Run smoke tests'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 3: Deploy to PRODUCTION
+# Gate: requires manual approval from Production Approvers group
+# ─────────────────────────────────────────────────────────────────────────────
+- stage: DeployProduction
+  displayName: '🚀 Deploy → PRODUCTION'
+  dependsOn: DeployStaging
+  condition: succeeded('DeployStaging')
+  variables:
+    environmentName: 'production'
+    namespace: 'production'
+    replicas: '3'
+
+  jobs:
+  - deployment: DeployToProduction
+    displayName: 'Deploy to AKS Production Namespace'
+    environment: 'InventoryAPI-Production'    # Has manual approval gate configured
+
+    strategy:
+      # Rolling deployment for zero-downtime production releases
+      rolling:
+        maxParallel: 1        # Deploy one pod at a time
+        preDeploy:
+          steps:
+          - script: |
+              echo "🔔 Starting production deployment"
+              echo "Image: $(ACR_NAME).azurecr.io/$(imageName):$(IMAGE_TAG)"
+              echo "Triggered by: $(Build.RequestedFor)"
+              echo "Pipeline run: $(Build.BuildNumber)"
+            displayName: 'Pre-deploy notification'
+
+        deploy:
+          steps:
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download image info'
+            inputs:
+              buildType: 'specific'
+              project: '$(System.TeamProjectId)'
+              definition: '$(resources.pipeline.ci-pipeline.pipelineID)'
+              buildVersionToDownload: 'specific'
+              pipelineId: '$(resources.pipeline.ci-pipeline.runID)'
+              artifactName: 'image-info'
+              targetPath: '$(Pipeline.Workspace)/image-info'
+
+          - task: DownloadPipelineArtifact@2
+            displayName: 'Download K8s manifests'
+            inputs:
+              buildType: 'specific'
+              project: '$(System.TeamProjectId)'
+              definition: '$(resources.pipeline.ci-pipeline.pipelineID)'
+              buildVersionToDownload: 'specific'
+              pipelineId: '$(resources.pipeline.ci-pipeline.runID)'
+              artifactName: 'k8s-manifests'
+              targetPath: '$(Pipeline.Workspace)/k8s'
+
+          - script: |
+              IMAGE_TAG=$(cat $(Pipeline.Workspace)/image-info/image-tag.txt)
+              echo "##vso[task.setvariable variable=IMAGE_TAG]${IMAGE_TAG}"
+            displayName: 'Read image tag'
+
+          - task: KubernetesManifest@1
+            displayName: 'Deploy to production'
+            inputs:
+              action: 'deploy'
+              connectionType: 'azureResourceManager'
+              azureSubscriptionConnection: 'AzureRM-ServiceConnection'
+              azureResourceGroup: '$(AKS_RESOURCE_GROUP)'
+              kubernetesCluster: '$(AKS_CLUSTER_NAME)'
+              namespace: '$(namespace)'
+              manifests: |
+                $(Pipeline.Workspace)/k8s/base/deployment.yaml
+                $(Pipeline.Workspace)/k8s/overlays/production/deployment-production.yaml
+              containers: '$(ACR_NAME).azurecr.io/$(imageName):$(IMAGE_TAG)'
+              imagePullSecrets: 'acr-pull-secret'
+
+          - task: Kubernetes@1
+            displayName: 'Verify production rollout'
+            inputs:
+              connectionType: 'azureResourceManager'
+              azureSubscriptionEndpoint: 'AzureRM-ServiceConnection'
+              azureResourceGroup: '$(AKS_RESOURCE_GROUP)'
+              kubernetesCluster: '$(AKS_CLUSTER_NAME)'
+              namespace: '$(namespace)'
+              command: 'rollout'
+              arguments: 'status deployment/inventory-api --timeout=10m'
+
+        routeTraffic:
+          steps:
+          - script: echo "All traffic routed to new version"
+            displayName: 'Traffic routing complete'
+
+        postRouteTraffic:
+          steps:
+          - script: |
+              echo "Running post-deploy verification"
+              PROD_URL="https://api.inventory.workshop.io"
+              HTTP_STATUS=$(curl -sk -o /dev/null -w "%{http_code}" ${PROD_URL}/health)
+              echo "Production health check status: ${HTTP_STATUS}"
+            displayName: 'Post-deploy health check'
+
+        on:
+          failure:
+            steps:
+            - task: Kubernetes@1
+              displayName: '🔴 ROLLBACK production deployment'
+              inputs:
+                connectionType: 'azureResourceManager'
+                azureSubscriptionEndpoint: 'AzureRM-ServiceConnection'
+                azureResourceGroup: '$(AKS_RESOURCE_GROUP)'
+                kubernetesCluster: '$(AKS_CLUSTER_NAME)'
+                namespace: '$(namespace)'
+                command: 'rollout'
+                arguments: 'undo deployment/inventory-api'
+            - script: echo "🚨 Production deployment FAILED and was rolled back!"
+              displayName: 'Rollback notification'
+
+          success:
+            steps:
+            - script: |
+                echo "✅ Production deployment SUCCEEDED"
+                echo "Version $(IMAGE_TAG) is live at https://api.inventory.workshop.io"
+              displayName: 'Success notification'

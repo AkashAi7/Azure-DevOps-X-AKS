@@ -1,0 +1,103 @@
+# ─── Deploy Template ─────────────────────────────────────────────────────────
+# Reusable deployment template — deploys to a Kubernetes namespace
+# ─────────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: environment
+    type: string                    # Azure DevOps Environment name
+  - name: namespace
+    type: string                    # Kubernetes namespace
+  - name: azureServiceConnection
+    type: string
+  - name: aksResourceGroup
+    type: string
+  - name: aksCluster
+    type: string
+  - name: acrName
+    type: string
+  - name: imageName
+    type: string
+  - name: manifestsPath
+    type: string
+  - name: isProduction
+    type: boolean
+    default: false
+
+jobs:
+- deployment: Deploy_${{ parameters.namespace }}
+  displayName: 'Deploy to ${{ parameters.namespace }}'
+  environment: '${{ parameters.environment }}'
+
+  strategy:
+    runOnce:
+      deploy:
+        steps:
+
+        - task: DownloadPipelineArtifact@2
+          displayName: 'Download image-info'
+          inputs:
+            artifactName: 'image-info'
+            targetPath: '$(Pipeline.Workspace)/image-info'
+
+        - task: DownloadPipelineArtifact@2
+          displayName: 'Download K8s manifests'
+          inputs:
+            artifactName: 'k8s-manifests'
+            targetPath: '$(Pipeline.Workspace)/k8s'
+
+        - script: |
+            IMAGE_TAG=$(cat $(Pipeline.Workspace)/image-info/image-tag.txt)
+            echo "##vso[task.setvariable variable=IMAGE_TAG]${IMAGE_TAG}"
+            echo "Deploying: ${{ parameters.acrName }}.azurecr.io/${{ parameters.imageName }}:${IMAGE_TAG}"
+            echo "Environment: ${{ parameters.namespace }}"
+          displayName: 'Set image tag variable'
+
+        # Replace image placeholder in manifests
+        - script: |
+            sed -i "s|\$(ACR_NAME)|${{ parameters.acrName }}|g" $(Pipeline.Workspace)/k8s/base/deployment.yaml
+            sed -i "s|\$(IMAGE_TAG)|$(IMAGE_TAG)|g" $(Pipeline.Workspace)/k8s/base/deployment.yaml
+          displayName: 'Substitute image variables in manifest'
+
+        - task: KubernetesManifest@1
+          displayName: 'Apply manifests to ${{ parameters.namespace }}'
+          inputs:
+            action: 'deploy'
+            connectionType: 'azureResourceManager'
+            azureSubscriptionConnection: '${{ parameters.azureServiceConnection }}'
+            azureResourceGroup: '${{ parameters.aksResourceGroup }}'
+            kubernetesCluster: '${{ parameters.aksCluster }}'
+            namespace: '${{ parameters.namespace }}'
+            manifests: |
+              $(Pipeline.Workspace)/k8s/base/deployment.yaml
+              $(Pipeline.Workspace)/k8s/base/service.yaml
+              $(Pipeline.Workspace)/k8s/base/configmap.yaml
+              $(Pipeline.Workspace)/k8s/${{ parameters.manifestsPath }}
+            containers: '${{ parameters.acrName }}.azurecr.io/${{ parameters.imageName }}:$(IMAGE_TAG)'
+            imagePullSecrets: 'acr-pull-secret'
+
+        - task: Kubernetes@1
+          displayName: 'Wait for rollout — ${{ parameters.namespace }}'
+          inputs:
+            connectionType: 'azureResourceManager'
+            azureSubscriptionEndpoint: '${{ parameters.azureServiceConnection }}'
+            azureResourceGroup: '${{ parameters.aksResourceGroup }}'
+            kubernetesCluster: '${{ parameters.aksCluster }}'
+            namespace: '${{ parameters.namespace }}'
+            command: 'rollout'
+            arguments: 'status deployment/${{ parameters.imageName }} --timeout=5m'
+
+        # Only run PDB check on production
+        - ${{ if eq(parameters.isProduction, true) }}:
+          - task: Kubernetes@1
+            displayName: 'Verify PodDisruptionBudget (production)'
+            inputs:
+              connectionType: 'azureResourceManager'
+              azureSubscriptionEndpoint: '${{ parameters.azureServiceConnection }}'
+              azureResourceGroup: '${{ parameters.aksResourceGroup }}'
+              kubernetesCluster: '${{ parameters.aksCluster }}'
+              namespace: '${{ parameters.namespace }}'
+              command: 'get'
+              arguments: 'pdb inventory-api-pdb -o json'
+
+        - script: |
+            echo "✅ Deployed to ${{ parameters.namespace }}: version $(IMAGE_TAG)"
+          displayName: 'Deployment summary'

@@ -1,0 +1,87 @@
+# ────────────────────────────────────────────────────────────────────────────
+# STAGING Environment Overlay — namespace: staging
+# 2 replicas, info logging, HPA 2-5
+# ────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-api
+  namespace: staging
+  annotations:
+    environment: staging
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: inventory-api
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inventory-api-config
+  namespace: staging
+data:
+  ENVIRONMENT: "staging"
+  LOG_LEVEL: "info"
+  PORT: "3000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-api
+  namespace: staging
+spec:
+  selector:
+    app: inventory-api
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: inventory-api-hpa
+  namespace: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: inventory-api
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: inventory-api-ingress
+  namespace: staging
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+    - host: staging.inventory-api.workshop.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: inventory-api
+                port:
+                  number: 80

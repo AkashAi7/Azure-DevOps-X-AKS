@@ -1,0 +1,119 @@
+# ────────────────────────────────────────────────────────────────────────────
+# PRODUCTION Environment Overlay — namespace: production
+# 3 replicas, warn logging, HPA 3-10, PodDisruptionBudget
+# ────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-api
+  namespace: production
+  annotations:
+    environment: production
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+        - name: inventory-api
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inventory-api-config
+  namespace: production
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "warn"
+  PORT: "3000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-api
+  namespace: production
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+spec:
+  selector:
+    app: inventory-api
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP
+---
+# Full HPA for production
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: inventory-api-hpa
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: inventory-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+---
+# PodDisruptionBudget — ensure at least 2 pods always running during disruptions
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: inventory-api-pdb
+  namespace: production
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: inventory-api
+---
+# Production Ingress with TLS
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: inventory-api-ingress
+  namespace: production
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/rate-limiting: "100"
+spec:
+  tls:
+    - hosts:
+        - api.inventory.workshop.io
+      secretName: inventory-api-tls
+  rules:
+    - host: api.inventory.workshop.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: inventory-api
+                port:
+                  number: 80

@@ -1,0 +1,69 @@
+# ─── Test Template ───────────────────────────────────────────────────────────
+# Reusable template: install dependencies, lint, run unit tests
+# Supports matrix strategy for multiple Node versions
+# ─────────────────────────────────────────────────────────────────────────────
+parameters:
+  - name: nodeVersions
+    type: object
+    default:
+      - '20'
+  - name: workingDir
+    type: string
+    default: 'sample-app'
+
+jobs:
+- job: Test
+  displayName: 'Test (Node matrix)'
+
+  strategy:
+    matrix:
+      ${{ each version in parameters.nodeVersions }}:
+        Node_${{ replace(version, '.', '_') }}:
+          nodeVersion: '${{ version }}'
+
+  steps:
+  - task: NodeTool@0
+    displayName: 'Install Node.js $(nodeVersion)'
+    inputs:
+      versionSpec: '$(nodeVersion)'
+
+  - task: Cache@2
+    displayName: 'Restore npm cache'
+    inputs:
+      key: 'npm | "$(Agent.OS)" | ${{ parameters.workingDir }}/package-lock.json'
+      restoreKeys: |
+        npm | "$(Agent.OS)"
+      path: '${{ parameters.workingDir }}/node_modules'
+
+  - script: |
+      cd ${{ parameters.workingDir }}
+      npm ci
+    displayName: 'Install dependencies'
+
+  - script: |
+      cd ${{ parameters.workingDir }}
+      npm run lint
+    displayName: 'Lint'
+
+  - script: |
+      cd ${{ parameters.workingDir }}
+      mkdir -p test-results
+      npm run test:ci
+    displayName: 'Unit tests'
+    env:
+      NODE_ENV: test
+
+  - task: PublishTestResults@2
+    condition: always()
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '${{ parameters.workingDir }}/test-results/junit.xml'
+      testRunTitle: 'Unit Tests — Node $(nodeVersion)'
+      failTaskOnFailedTests: true
+
+  - task: PublishCodeCoverageResults@2
+    condition: succeededOrFailed()
+    displayName: 'Publish code coverage'
+    inputs:
+      summaryFileLocation: '${{ parameters.workingDir }}/coverage/cobertura-coverage.xml'

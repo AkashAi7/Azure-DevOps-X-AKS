@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-api
+  # namespace is set by overlay
+  labels:
+    app: inventory-api
+    version: "$(IMAGE_TAG)"       # replaced by pipeline at deploy time
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    azure-devops/pipeline-run-id: "$(Build.BuildId)"
+spec:
+  replicas: 1                     # overridden in overlays
+  selector:
+    matchLabels:
+      app: inventory-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0           # zero-downtime rollout
+  template:
+    metadata:
+      labels:
+        app: inventory-api
+        version: "$(IMAGE_TAG)"
+    spec:
+      # Pull image from ACR (imagePullSecrets set in overlay)
+      containers:
+        - name: inventory-api
+          image: $(ACR_NAME).azurecr.io/inventory-api:$(IMAGE_TAG)
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3000"
+            - name: APP_VERSION
+              value: "$(IMAGE_TAG)"
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: inventory-api-config
+                  key: ENVIRONMENT
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          # Liveness probe — restart if app is stuck
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+            timeoutSeconds: 5
+          # Readiness probe — remove from LB if not ready
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 3
+          # Startup probe — extra time for cold start
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            failureThreshold: 12
+            periodSeconds: 5
+      # Graceful shutdown
+      terminationGracePeriodSeconds: 30
+      # Spread pods across nodes
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: inventory-api

@@ -1,0 +1,173 @@
+# ============================================================================
+# CI Pipeline — InventoryAPI
+# Triggers on: push to main/develop, PR to main
+# Stages: Install → Lint → Test → Build → Push to ACR
+# ============================================================================
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - feature/*
+  paths:
+    include:
+      - sample-app/**
+      - pipelines/ci-pipeline.yml
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+# ─── Variables ──────────────────────────────────────────────────────────────
+variables:
+  # These non-secret values are defined inline
+  nodeVersion: '20'
+  imageName: 'inventory-api'
+  dockerfilePath: 'sample-app/Dockerfile'
+  buildContext: 'sample-app'
+
+  # These variable groups are created in Azure DevOps Library
+  # and linked to Azure Key Vault for secret management
+  - group: InventoryAPI-Common      # ACR_NAME, AKS_RESOURCE_GROUP, AKS_CLUSTER_NAME
+  - group: InventoryAPI-Secrets     # ACR_PASSWORD (from Key Vault)
+
+# ─── Build Agents ────────────────────────────────────────────────────────────
+pool:
+  vmImage: 'ubuntu-latest'         # Microsoft-hosted agent
+
+# ─── Stages ─────────────────────────────────────────────────────────────────
+stages:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 1: Validate — Install, Lint, Unit Tests
+# ─────────────────────────────────────────────────────────────────────────────
+- stage: Validate
+  displayName: '🔍 Validate Code'
+  jobs:
+
+  - job: UnitTest
+    displayName: 'Unit Tests & Coverage'
+    strategy:
+      matrix:
+        Node18:
+          nodeVersion: '18'
+        Node20:
+          nodeVersion: '20'
+    steps:
+
+    - task: NodeTool@0
+      displayName: 'Install Node.js $(nodeVersion)'
+      inputs:
+        versionSpec: '$(nodeVersion)'
+
+    - task: Cache@2
+      displayName: 'Cache npm packages'
+      inputs:
+        key: 'npm | "$(Agent.OS)" | sample-app/package-lock.json'
+        restoreKeys: |
+          npm | "$(Agent.OS)"
+        path: 'sample-app/node_modules'
+
+    - script: |
+        cd sample-app
+        npm ci
+      displayName: 'Install dependencies'
+
+    - script: |
+        cd sample-app
+        npm run lint
+      displayName: 'Run ESLint'
+      continueOnError: false
+
+    - script: |
+        cd sample-app
+        mkdir -p test-results
+        npm run test:ci
+      displayName: 'Run unit tests'
+      env:
+        NODE_ENV: test
+
+    - task: PublishTestResults@2
+      displayName: 'Publish test results'
+      condition: always()
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: 'sample-app/test-results/junit.xml'
+        testRunTitle: 'Unit Tests - Node $(nodeVersion)'
+        failTaskOnFailedTests: true
+
+    - task: PublishCodeCoverageResults@2
+      displayName: 'Publish code coverage'
+      condition: succeededOrFailed()
+      inputs:
+        summaryFileLocation: 'sample-app/coverage/cobertura-coverage.xml'
+        failIfCoverageEmpty: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 2: Build — Docker image build + push to ACR
+# Only runs if Validate stage passes AND on main/develop (not PRs)
+# ─────────────────────────────────────────────────────────────────────────────
+- stage: Build
+  displayName: '🐳 Build & Push Image'
+  dependsOn: Validate
+  condition: |
+    and(
+      succeeded('Validate'),
+      ne(variables['Build.Reason'], 'PullRequest')
+    )
+  jobs:
+
+  - job: BuildImage
+    displayName: 'Docker Build & Push'
+    steps:
+
+    - task: Docker@2
+      displayName: 'Login to ACR'
+      inputs:
+        command: login
+        containerRegistry: 'ACR-ServiceConnection'   # Service connection name
+
+    # Generate image tag: <short-commit-sha>-<build-id>
+    - script: |
+        SHORT_SHA=$(echo "$(Build.SourceVersion)" | cut -c1-8)
+        IMAGE_TAG="${SHORT_SHA}-$(Build.BuildId)"
+        echo "##vso[task.setvariable variable=IMAGE_TAG;isOutput=true]${IMAGE_TAG}"
+        echo "Image tag: ${IMAGE_TAG}"
+      displayName: 'Generate image tag'
+      name: SetImageTag
+
+    - task: Docker@2
+      displayName: 'Build and push Docker image'
+      inputs:
+        command: buildAndPush
+        repository: '$(ACR_NAME).azurecr.io/$(imageName)'
+        dockerfile: '$(dockerfilePath)'
+        buildContext: '$(buildContext)'
+        tags: |
+          $(SetImageTag.IMAGE_TAG)
+          latest
+        arguments: '--build-arg APP_VERSION=$(SetImageTag.IMAGE_TAG)'
+
+    # Publish image tag as pipeline artifact so CD stage can use it
+    - script: |
+        mkdir -p $(Build.ArtifactStagingDirectory)/image-info
+        echo "$(SetImageTag.IMAGE_TAG)" > $(Build.ArtifactStagingDirectory)/image-info/image-tag.txt
+      displayName: 'Save image tag artifact'
+
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish image info artifact'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/image-info'
+        artifact: 'image-info'
+        publishLocation: 'pipeline'
+
+    # Also publish K8s manifests as artifact
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish K8s manifests'
+      inputs:
+        targetPath: 'k8s'
+        artifact: 'k8s-manifests'
+        publishLocation: 'pipeline'

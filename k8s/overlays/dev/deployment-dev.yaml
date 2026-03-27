@@ -1,0 +1,69 @@
+# ────────────────────────────────────────────────────────────────────────────
+# DEV Environment Overlay — namespace: dev
+# 1 replica, debug logging, no HPA
+# ────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-api
+  namespace: dev
+  annotations:
+    environment: dev
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: inventory-api
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inventory-api-config
+  namespace: dev
+data:
+  ENVIRONMENT: "dev"
+  LOG_LEVEL: "debug"
+  PORT: "3000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory-api
+  namespace: dev
+spec:
+  selector:
+    app: inventory-api
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP
+---
+# Ingress for dev — accessible at dev.inventory-api.<cluster-dns>
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: inventory-api-ingress
+  namespace: dev
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: "/"
+spec:
+  rules:
+    - host: dev.inventory-api.workshop.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: inventory-api
+                port:
+                  number: 80

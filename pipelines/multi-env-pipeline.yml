@@ -1,0 +1,142 @@
+# ============================================================================
+# FULL Multi-Environment Pipeline — InventoryAPI
+# Single pipeline: CI + CD in one file for workshop simplicity
+# Stages: Validate → Build → Dev → Staging → Production
+# ============================================================================
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - sample-app/**
+
+pr:
+  branches:
+    include:
+      - main
+
+# ─── Variables & Variable Groups ─────────────────────────────────────────────
+variables:
+  nodeVersion: '20'
+  imageName: 'inventory-api'
+  dockerfilePath: 'sample-app/Dockerfile'
+  buildContext: 'sample-app'
+  acrServiceConnection: 'ACR-ServiceConnection'
+  azureServiceConnection: 'AzureRM-ServiceConnection'
+  - group: InventoryAPI-Common
+  - group: InventoryAPI-Secrets
+
+# ─── Stage 1: Validate ───────────────────────────────────────────────────────
+stages:
+- stage: Validate
+  displayName: '🔍 Stage 1 — Validate'
+  pool:
+    vmImage: 'ubuntu-latest'
+  jobs:
+  - template: templates/test-template.yml
+    parameters:
+      nodeVersions:
+        - '18'
+        - '20'
+      workingDir: 'sample-app'
+
+# ─── Stage 2: Build ──────────────────────────────────────────────────────────
+- stage: Build
+  displayName: '🐳 Stage 2 — Build Image'
+  dependsOn: Validate
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  pool:
+    vmImage: 'ubuntu-latest'
+  jobs:
+  - template: templates/build-template.yml
+    parameters:
+      imageName: '$(imageName)'
+      acrName: '$(ACR_NAME)'
+      acrServiceConnection: '$(acrServiceConnection)'
+      dockerfile: '$(dockerfilePath)'
+      buildContext: '$(buildContext)'
+
+# ─── Stage 3: Deploy Dev ─────────────────────────────────────────────────────
+- stage: DeployDev
+  displayName: '🚀 Stage 3 — Deploy DEV'
+  dependsOn: Build
+  condition: succeeded('Build')
+  jobs:
+  - template: templates/deploy-template.yml
+    parameters:
+      environment: 'InventoryAPI-Dev'
+      namespace: 'dev'
+      azureServiceConnection: '$(azureServiceConnection)'
+      aksResourceGroup: '$(AKS_RESOURCE_GROUP)'
+      aksCluster: '$(AKS_CLUSTER_NAME)'
+      acrName: '$(ACR_NAME)'
+      imageName: '$(imageName)'
+      manifestsPath: 'k8s/overlays/dev/deployment-dev.yaml'
+
+# ─── Stage 4: Integration Tests on Dev ───────────────────────────────────────
+- stage: IntegrationTestDev
+  displayName: '🧪 Stage 4 — Integration Tests'
+  dependsOn: DeployDev
+  condition: succeeded('DeployDev')
+  pool:
+    vmImage: 'ubuntu-latest'
+  jobs:
+  - job: RunIntegrationTests
+    displayName: 'API Integration Tests vs Dev'
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '$(nodeVersion)'
+
+    - script: |
+        cd sample-app
+        npm ci
+        # Run integration tests pointing at dev endpoint
+        DEV_API_URL="http://dev.inventory-api.workshop.local" npm run test:ci
+      displayName: 'Run integration tests'
+      env:
+        NODE_ENV: integration
+
+    - task: PublishTestResults@2
+      condition: always()
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: 'sample-app/test-results/junit.xml'
+        testRunTitle: 'Integration Tests — Dev Environment'
+
+# ─── Stage 5: Deploy Staging ─────────────────────────────────────────────────
+- stage: DeployStaging
+  displayName: '🚀 Stage 5 — Deploy STAGING'
+  dependsOn: IntegrationTestDev
+  condition: succeeded('IntegrationTestDev')
+  jobs:
+  - template: templates/deploy-template.yml
+    parameters:
+      environment: 'InventoryAPI-Staging'
+      namespace: 'staging'
+      azureServiceConnection: '$(azureServiceConnection)'
+      aksResourceGroup: '$(AKS_RESOURCE_GROUP)'
+      aksCluster: '$(AKS_CLUSTER_NAME)'
+      acrName: '$(ACR_NAME)'
+      imageName: '$(imageName)'
+      manifestsPath: 'k8s/overlays/staging/deployment-staging.yaml'
+
+# ─── Stage 6: Deploy Production (needs manual approval) ──────────────────────
+- stage: DeployProduction
+  displayName: '🚀 Stage 6 — Deploy PRODUCTION'
+  dependsOn: DeployStaging
+  condition: succeeded('DeployStaging')
+  jobs:
+  - template: templates/deploy-template.yml
+    parameters:
+      environment: 'InventoryAPI-Production'
+      namespace: 'production'
+      azureServiceConnection: '$(azureServiceConnection)'
+      aksResourceGroup: '$(AKS_RESOURCE_GROUP)'
+      aksCluster: '$(AKS_CLUSTER_NAME)'
+      acrName: '$(ACR_NAME)'
+      imageName: '$(imageName)'
+      manifestsPath: 'k8s/overlays/production/deployment-production.yaml'
+      isProduction: true
