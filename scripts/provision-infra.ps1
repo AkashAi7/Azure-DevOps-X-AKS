@@ -55,16 +55,13 @@ Info "Checking required tools..."
 if (-not (Get-Command az      -ErrorAction SilentlyContinue)) { throw "Azure CLI not found. Install from https://aka.ms/installazurecliwindows" }
 if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) { throw "kubectl not found. Install from https://kubernetes.io/docs/tasks/tools/" }
 
-# Ensure required CLI extensions are present
-$extList = az extension list --query "[].name" -o tsv 2>$null
-if ($extList -notcontains "azure-devops") {
+# Ensure the Azure DevOps CLI extension is present
+$extCheck = az extension show --name azure-devops --output none 2>&1
+if ($LASTEXITCODE -ne 0) {
     Info "Installing Azure DevOps CLI extension..."
     az extension add --name azure-devops --output none
-}
-if ($extList -notcontains "azure-devops") {
-    # azure-devops extension also covers artifacts; no separate extension needed
-    # but confirm it loaded
-    az extension add --name azure-devops --output none 2>$null
+} else {
+    Success "Azure DevOps CLI extension already installed."
 }
 
 # ---------------------------------------------------------------------------
