@@ -66,6 +66,7 @@ Fortis-Workshop/
 │       └── README-variable-groups.md
 │
 ├── labs/                            ← Hands-on lab guides
+│   ├── lab-00-admin-setup.md
 │   ├── lab-01-setup.md
 │   ├── lab-02-ci-pipeline.md
 │   ├── lab-03-cd-aks.md
@@ -122,10 +123,17 @@ Fortis-Workshop/
 # 1. Clone this repository into your Azure DevOps project
 git clone <this-repo-url>
 
-# 2. Follow demo-setup.md to pre-configure Azure resources
-# 3. Import pipelines/ci-pipeline.yml into Azure DevOps
-# 4. Walk through AGENDA.md module by module
+# 2. Complete labs/lab-00-admin-setup.md for greenfield or brownfield bootstrap
+# 3. Use demo-setup.md as supporting facilitator pre-work if needed
+# 4. Ask participants to begin with labs/lab-01-setup.md during kickoff
+# 5. Walk through AGENDA.md module by module
 ```
+
+### Recommended Lab Flow
+
+- `labs/lab-00-admin-setup.md` -> admin-only pre-work before workshop day
+- `labs/lab-01-setup.md` -> participant onboarding and access validation during kickoff
+- `labs/lab-02-ci-pipeline.md` onward -> shared hands-on participant labs
 
 ---
 

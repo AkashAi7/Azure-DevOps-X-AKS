@@ -1,78 +1,33 @@
-# Lab 01: Environment Setup & Azure DevOps Orientation
+# Lab 01: Collaborator Setup and Azure DevOps Orientation
 
+**Audience:** Workshop participants and collaborators  
 **Duration:** 20 minutes  
 **Module:** Kickoff  
-**Objective:** Validate all tools, explore the Azure DevOps project, and understand the workshop environment.
+**Objective:** Validate your local tools, confirm access to Azure DevOps and AKS, clone the workshop repo, and verify you are ready for the remaining labs.
 
 ---
 
-## Starting From Scratch? Provision Azure Resources First
+## Before You Start
 
-> **Skip this section** if a facilitator has already pre-provisioned the cluster and ACR for your team.
+This lab assumes the workshop admin has already completed the environment bootstrap in `labs/lab-00-admin-setup.md`.
 
-If your team has **no existing Azure project, AKS cluster, or namespaces**, run the provisioning script before anything else.  
-The script creates: Resource Group → ACR → AKS cluster (with ACR attached) → `dev` / `staging` / `production` namespaces.
+Before you begin, make sure you have these values from the admin or facilitator:
 
-### Step 1 — Fill in your values
+- Azure subscription ID for the workshop
+- Azure DevOps organization URL
+- Azure DevOps project URL
+- Azure Repos clone URL for `Fortis-Workshop`
+- AKS resource group name
+- AKS cluster name
+- ACR name if you want to inspect published images later
 
-Open the script for your OS and set these **5 values** at the top before running anything else:
-
-| Variable | What to put | How to find it |
-|---|---|---|
-| `SubscriptionId` / `SUBSCRIPTION_ID` | Your Azure Subscription ID | `az account show --query id -o tsv` |
-| `AksResourceGroup` / `AKS_RESOURCE_GROUP` | Resource group containing your AKS cluster | Azure Portal → your AKS → Resource group field |
-| `AksName` / `AKS_NAME` | Your AKS cluster name | Azure Portal → Kubernetes services |
-| `AcrName` / `ACR_NAME` | Your ACR name **without** `.azurecr.io` | Azure Portal → Container registries |
-| `AzDoOrg` / `AZDO_ORG` | Your Azure DevOps org URL | `https://dev.azure.com/<your-org-name>` |
-
-`AzDoProject` / `AZDO_PROJECT` defaults to `workshop-project` — change it only if you want a different project name.
-
-### Step 2 — Run the script
-
-#### Option A – PowerShell (Windows)
-
-```powershell
-# Run from the root of the workshop repo
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\scripts\provision-infra.ps1
-```
-
-#### Option B – Bash (Linux / macOS / Azure Cloud Shell)
-
-```bash
-# Run from the root of the workshop repo
-chmod +x scripts/provision-infra.sh
-./scripts/provision-infra.sh
-```
-
-### What the script sets up for you
-
-| # | What gets created |
-|---|---|
-| 1 | Connects `kubectl` to your existing AKS cluster |
-| 2 | Kubernetes namespaces: `dev`, `staging`, `production` |
-| 3 | Azure DevOps project (`workshop-project`) |
-| 4 | Variable groups: `InventoryAPI-Common`, `InventoryAPI-Environments` |
-| 5 | Boards: 1 Epic → 4 Features → 4 Stories → 14 Tasks + 2 Bugs |
-| 6 | Git repo initialised and workshop source pushed |
-| 7 | Pipelines imported: CI, CD, MultiEnv |
-| 8 | Artifacts feed: `inventory-api-packages` |
-| 9 | Test Plan: 2 suites, 10 test cases |
-
-> **Estimated time:** ~3–5 minutes.
-
-### Two manual steps after the script
-
-These require browser consent and cannot be automated:
-
-1. **`InventoryAPI-Secrets` variable group** — go to `Project Settings → Library → + Variable group`, link it to your Key Vault (see [pipelines/variable-groups/README-variable-groups.md](../pipelines/variable-groups/README-variable-groups.md))
-2. **AKS service connection** — go to `Project Settings → Service connections → New → Kubernetes`
+If any of these are missing, stop here and ask the admin before moving forward.
 
 ---
 
-## Prerequisites Check
+## Task 1: Verify Your Local Tooling
 
-Run these commands in your terminal to verify your environment:
+Run these commands in your terminal:
 
 ```bash
 # 1. Azure CLI
@@ -102,7 +57,7 @@ If any tool is missing, refer to the [prerequisites install guide](../demos/demo
 
 ---
 
-## Task 1: Log in to Azure
+## Task 2: Log in to Azure
 
 ```bash
 # Log in to Azure CLI
@@ -117,13 +72,13 @@ az account show --query "{Name:name, ID:id}" -o table
 
 ---
 
-## Task 2: Connect to the AKS Cluster
+## Task 3: Connect to the AKS Cluster
 
 ```bash
 # Get AKS credentials (ask facilitator for values)
 az aks get-credentials \
-  --resource-group rg-workshop-aks \
-  --name aks-workshop-01 \
+  --resource-group <aks-resource-group> \
+  --name <aks-cluster-name> \
   --overwrite-existing
 
 # Verify connection
@@ -137,9 +92,9 @@ kubectl get namespaces
 
 ---
 
-## Task 3: Explore the Azure DevOps Project
+## Task 4: Confirm Azure DevOps Access and Explore the Project
 
-1. Open your browser and navigate to: `https://dev.azure.com/<your-org>/workshop-project`
+1. Open your browser and navigate to the workshop Azure DevOps project URL provided by the admin
 2. Click through each section in the left navigation:
 
 | Section | What to look for |
@@ -147,18 +102,86 @@ kubectl get namespaces
 | **Boards** | Open work items, active sprint |
 | **Repos** | `Fortis-Workshop` repository with all files |
 | **Pipelines** | Pre-imported CI and CD pipelines |
-| **Artifacts** | `workshop-packages` feed |
+| **Artifacts** | `inventory-api-packages` feed |
 | **Test Plans** | Existing test plan for InventoryAPI |
 
-3. Navigate to **Pipelines → Library** — you should see `InventoryAPI-Common` and `InventoryAPI-Secrets` variable groups already configured.
+3. Navigate to **Pipelines -> Library** and confirm you can see the shared variable groups.
+4. Navigate to **Project Settings -> Service connections** only if your facilitator wants you to verify access. Most participants only need to confirm the connections exist; they do not need to edit them.
 
 ---
 
-## Task 4: Clone the Repository
+## Task 5: Azure Boards — Orient and Assign Yourself
+
+The admin has already seeded the board with work items. This task gets you oriented and sets you up as an active collaborator before the coding labs begin.
+
+### 5.1 Understand the work item hierarchy
+
+Navigate to **Boards -> Backlogs** and expand the backlog tree. You should see:
+
+```
+Epic
+└── Feature: CI Pipeline - Build, Test & Publish
+│   └── User Story: As a developer, I can trigger an automated build on every commit
+│       ├── Task: Create ci-pipeline.yml in Azure DevOps
+│       ├── Task: Add ESLint lint stage
+│       ├── Task: Add Jest unit-test stage with coverage threshold
+│       └── Task: Build Docker image and push to ACR
+└── Feature: CD Pipeline - Multi-Environment Deployment
+│   └── User Story: As an ops engineer, I can promote a release through dev -> staging -> production
+│       ├── Task: Deploy to dev namespace on every successful CI run
+│       ├── Task: Add manual approval gate before staging deployment
+│       ├── Task: Add production gate with rollback strategy
+│       └── Task: Configure HPA and resource limits per environment
+└── Feature: Observability - Health, Metrics & Alerts
+└── Feature: GitHub Copilot Agentic DevOps
+```
+
+If the backlog looks empty, check the **Area** and **Iteration** filters at the top — make sure they are set to show all items.
+
+### 5.2 Assign yourself to a task
+
+1. In the backlog, expand the CI Pipeline feature tree
+2. Click on any Task that is currently **unassigned**
+3. In the work item detail panel that opens on the right:
+   - Set **Assigned To** to your name
+   - Set **State** to **Active**
+   - Click **Save**
+
+> Pick one task that matches the lab you will work on first. Each participant should own a distinct task to avoid conflicts.
+
+### 5.3 View your sprint board
+
+1. Go to **Boards -> Boards** (the Kanban view)
+2. Confirm your assigned task appears in the **Active** column
+3. Familiarise yourself with the three default columns: **New**, **Active**, **Closed**
+
+### 5.4 Create a personal task (optional)
+
+If you want to track your own setup work:
+
+1. Click **+ New Work Item** at the top of any backlog column
+2. Type a title such as `Set up local dev environment — <your name>`
+3. Set Type to **Task**
+4. Assign it to yourself and set State to **Active**
+5. Link it to the CI Pipeline User Story using **Add link -> Parent**
+
+### 5.5 Link a commit to a work item (preview — you will do this again in Lab 02)
+
+Azure DevOps automatically detects work item IDs in commit messages when you use the `#<id>` syntax.
+
+Note the ID of one of your assigned tasks (visible in the backlog list and in the URL of the work item detail panel). You will reference it when you make your first commit in Lab 02:
 
 ```bash
-# Clone using Azure Repos URL (get from Repos → Clone)
-git clone https://<your-org>@dev.azure.com/<your-org>/workshop-project/_git/Fortis-Workshop
+git commit -m "feat: add CI trigger - fixes #<work-item-id>"
+```
+
+---
+
+## Task 6: Clone the Repository
+
+```bash
+# Clone using the Azure Repos URL provided by the admin or from Repos -> Clone
+git clone <azure-repos-clone-url>
 
 cd Fortis-Workshop
 
@@ -171,7 +194,7 @@ npm test
 
 ---
 
-## Task 5: Run the App Locally
+## Task 7: Run the App Locally
 
 ```bash
 cd sample-app
@@ -195,7 +218,7 @@ curl -X POST http://localhost:3000/api/products \
 
 ---
 
-## Task 6: Run the App with Docker
+## Task 8: Run the App with Docker
 
 ```bash
 cd sample-app
@@ -218,11 +241,32 @@ curl http://localhost:3000/health
 
 ---
 
-## ✅ Lab 1 Completion Checklist
+## Collaboration Expectations for the Remaining Labs
+
+From this point onward, participants are expected to work inside the shared Azure DevOps project and shared AKS environment.
+
+During the next labs, you will typically:
+
+- Move work items from **Active** to **Closed** as you complete tasks
+- Reference work item IDs in commit messages using `#<id>` syntax
+- Create commits and push changes to Azure Repos
+- Trigger or inspect Azure DevOps pipelines
+- Review deployment history in Azure DevOps environments
+- Validate workloads running in the `dev`, `staging`, and `production` namespaces
+- Collaborate without reconfiguring the underlying Azure platform
+
+If you need admin-only changes such as new service connections, namespace creation, or project-level security changes, ask the workshop admin instead of changing the environment yourself.
+
+---
+
+## ✅ Lab 01 Completion Checklist
 
 - [ ] Azure CLI logged in and subscription set
 - [ ] kubectl connected to AKS cluster, can see 3 nodes
 - [ ] Explored all 5 Azure DevOps sections
+- [ ] Boards backlog loaded and work item hierarchy visible
+- [ ] Assigned yourself to at least one task and set it to Active
+- [ ] Noted the work item ID you will reference in Lab 02
 - [ ] Repository cloned and npm tests pass
 - [ ] App runs locally (npm start)
 - [ ] App runs in Docker container

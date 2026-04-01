@@ -31,11 +31,14 @@ Format: 60% instruction/demo + 40% hands-on labs
 ### Objectives
 - Welcome participants and set expectations
 - Validate all environments are working
+- Confirm the pre-workshop admin setup is already complete
 - Walk through what will be built today
 
 ### Facilitator Notes
 - Do a quick poll: who has used Azure DevOps before? Who has deployed to AKS?
 - Screen-share the architecture diagram
+- Confirm the environment owner has already completed `labs/lab-00-admin-setup.md`
+- Ask participants to use `labs/lab-01-setup.md` for their collaborator onboarding steps
 - Confirm everyone can log in to Azure DevOps and VS Code
 
 ### Architecture Overview
