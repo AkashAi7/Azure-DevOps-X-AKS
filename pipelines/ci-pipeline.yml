@@ -23,16 +23,20 @@ pr:
 
 # ─── Variables ──────────────────────────────────────────────────────────────
 variables:
-  # These non-secret values are defined inline
-  nodeVersion: '20'
-  imageName: 'inventory-api'
-  dockerfilePath: 'sample-app/Dockerfile'
-  buildContext: 'sample-app'
-
   # These variable groups are created in Azure DevOps Library
   # and linked to Azure Key Vault for secret management
   - group: InventoryAPI-Common      # ACR_NAME, AKS_RESOURCE_GROUP, AKS_CLUSTER_NAME
   - group: InventoryAPI-Secrets     # ACR_PASSWORD (from Key Vault)
+
+  # These non-secret values are defined inline
+  - name: nodeVersion
+    value: '22'
+  - name: imageName
+    value: 'inventory-api'
+  - name: dockerfilePath
+    value: 'sample-app/Dockerfile'
+  - name: buildContext
+    value: 'sample-app'
 
 # ─── Build Agents ────────────────────────────────────────────────────────────
 pool:
@@ -52,10 +56,10 @@ stages:
     displayName: 'Unit Tests & Coverage'
     strategy:
       matrix:
-        Node18:
-          nodeVersion: '18'
         Node20:
           nodeVersion: '20'
+        Node22:
+          nodeVersion: '22'
     steps:
 
     - task: NodeTool@0
@@ -124,12 +128,6 @@ stages:
     displayName: 'Docker Build & Push'
     steps:
 
-    - task: Docker@2
-      displayName: 'Login to ACR'
-      inputs:
-        command: login
-        containerRegistry: 'ACR-ServiceConnection'   # Service connection name
-
     # Generate image tag: <short-commit-sha>-<build-id>
     - script: |
         SHORT_SHA=$(echo "$(Build.SourceVersion)" | cut -c1-8)
@@ -143,7 +141,8 @@ stages:
       displayName: 'Build and push Docker image'
       inputs:
         command: buildAndPush
-        repository: '$(ACR_NAME).azurecr.io/$(imageName)'
+        containerRegistry: 'ACR-ServiceConnection'
+        repository: '$(imageName)'
         dockerfile: '$(dockerfilePath)'
         buildContext: '$(buildContext)'
         tags: |

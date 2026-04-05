@@ -28,18 +28,41 @@ $ErrorActionPreference = "Stop"
 
 # ---------------------------------------------------------------------------
 # CONFIGURATION - fill in every value marked  <<<  before running
+# Or place a filled-in workshop.env in the repo root and values load automatically.
 # ---------------------------------------------------------------------------
 
 # --- Azure ---
-$SubscriptionId   = "4459723a-46af-46c3-af53-dfb3a134618b"                    # <<< your Azure Subscription ID
-$AksResourceGroup = "AKS_training"     # <<< resource group that contains your AKS cluster
-$AksName          = "testcluster"     # <<< your AKS cluster name
-$AcrName          = "testregistryakash"       # <<< your ACR name (without .azurecr.io)
+$SubscriptionId   = ""                                    # <<< your Azure Subscription ID
+$AksResourceGroup = "rg-workshop-aks"                     # <<< resource group that contains your AKS cluster
+$AksName          = "aks-workshop-01"                     # <<< your AKS cluster name
+$AcrName          = "workshopacr01"                       # <<< your ACR name (without .azurecr.io)
 
 # --- Azure DevOps ---
-$AzDoOrg          = "https://dev.azure.com/akashdwivedi"   # <<< org URL only - no project name (check: dev.azure.com/<orgname>)
-$AzDoProject      = "workshop-project"                   # <<< project name to create (or existing)
-$AzDoProjectDesc  = "Fortis Workshop – AKS DevOps project"
+$AzDoOrg          = "https://dev.azure.com/<your-org>"    # <<< org URL only - no project name (check: dev.azure.com/<orgname>)
+$AzDoProject      = "workshop-project"                    # <<< project name to create (or existing)
+$AzDoProjectDesc  = "Fortis Workshop - AKS DevOps project"
+
+# --- Auto-load from workshop.env if the file exists ---
+$envFiles = @("workshop.env", "$PSScriptRoot/../workshop.env")
+foreach ($envFile in $envFiles) {
+    if (Test-Path $envFile) {
+        Get-Content $envFile | ForEach-Object {
+            if ($_ -match '^\s*([A-Z_]+)\s*=\s*(.+)\s*$' -and $_ -notmatch '^\s*#') {
+                $key = $Matches[1]; $val = $Matches[2]
+                switch ($key) {
+                    'AZURE_SUBSCRIPTION_ID' { if ($val) { $SubscriptionId   = $val } }
+                    'AKS_RESOURCE_GROUP'    { if ($val) { $AksResourceGroup = $val } }
+                    'AKS_CLUSTER_NAME'      { if ($val) { $AksName          = $val } }
+                    'ACR_NAME'              { if ($val) { $AcrName          = $val } }
+                    'AZDO_ORG'              { if ($val) { $AzDoOrg          = $val } }
+                    'AZDO_PROJECT'          { if ($val) { $AzDoProject      = $val } }
+                }
+            }
+        }
+        Write-Host "[INFO]  Loaded configuration from: $envFile" -ForegroundColor Cyan
+        break
+    }
+}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -267,7 +290,7 @@ if ($repoUrl) {
     }
 
     # Configure git credential helper for Azure DevOps
-    git config credential.helper manager-core 2>$null
+    git config credential.helper manager 2>$null
 
     # Add/update the azdo remote
     $existingRemote = git remote get-url azdo 2>$null

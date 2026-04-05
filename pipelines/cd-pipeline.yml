@@ -18,9 +18,14 @@ resources:
 
 # ─── Variables ───────────────────────────────────────────────────────────────
 variables:
-  imageName: 'inventory-api'
   - group: InventoryAPI-Common        # ACR_NAME, AKS_RESOURCE_GROUP, AKS_CLUSTER_NAME
   - group: InventoryAPI-Secrets
+  - name: imageName
+    value: 'inventory-api'
+
+# ─── Build Agents ────────────────────────────────────────────────────────────
+pool:
+  vmImage: 'ubuntu-latest'
 
 # ─── Stages ──────────────────────────────────────────────────────────────────
 stages:

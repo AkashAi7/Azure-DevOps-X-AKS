@@ -29,6 +29,7 @@ set -euo pipefail
 
 # ---------------------------------------------------------------------------
 # CONFIGURATION - fill in every value marked  <<<  before running
+# Or place a filled-in workshop.env in the repo root and values load automatically.
 # ---------------------------------------------------------------------------
 
 # --- Azure ---
@@ -41,6 +42,28 @@ ACR_NAME="workshopacr01"                    # <<< your ACR name (without .azurec
 AZDO_ORG="https://dev.azure.com/<your-org>" # <<< your Azure DevOps org URL
 AZDO_PROJECT="workshop-project"             # <<< project name to create (or existing)
 AZDO_PROJECT_DESC="Fortis Workshop - AKS DevOps project"
+
+# --- Auto-load from workshop.env if the file exists ---
+for envfile in "workshop.env" "$(dirname "$0")/../workshop.env"; do
+    if [[ -f "$envfile" ]]; then
+        while IFS='=' read -r key value; do
+            [[ "$key" =~ ^\s*# ]] && continue
+            [[ -z "$key" ]] && continue
+            key=$(echo "$key" | xargs)
+            value=$(echo "$value" | xargs)
+            case "$key" in
+                AZURE_SUBSCRIPTION_ID) [[ -n "$value" ]] && SUBSCRIPTION_ID="$value" ;;
+                AKS_RESOURCE_GROUP)    [[ -n "$value" ]] && AKS_RESOURCE_GROUP="$value" ;;
+                AKS_CLUSTER_NAME)      [[ -n "$value" ]] && AKS_NAME="$value" ;;
+                ACR_NAME)              [[ -n "$value" ]] && ACR_NAME="$value" ;;
+                AZDO_ORG)              [[ -n "$value" ]] && AZDO_ORG="$value" ;;
+                AZDO_PROJECT)          [[ -n "$value" ]] && AZDO_PROJECT="$value" ;;
+            esac
+        done < "$envfile"
+        echo -e "\033[1;34m[INFO]\033[0m  Loaded configuration from: $envfile"
+        break
+    fi
+done
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -180,7 +203,7 @@ new_work_item() {
   id=$(az boards work-item create \
     --type "$type" --title "$title" \
     "${extra_args[@]}" \
-    --output json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+    --query "id" -o tsv 2>/dev/null)
   if [[ -n "$parent_id" && -n "$id" ]]; then
     az boards work-item relation add \
       --id "$id" \
@@ -259,7 +282,7 @@ if [[ -n "$REPO_URL" ]]; then
     fi
   fi
 
-  git config credential.helper manager-core 2>/dev/null || true
+  git config credential.helper manager 2>/dev/null || true
 
   if git remote get-url azdo &>/dev/null; then
     git remote set-url azdo "$REPO_URL"

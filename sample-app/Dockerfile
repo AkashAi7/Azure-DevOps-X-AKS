@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ─────────────────────── Stage 1: Build ────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -8,13 +8,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies (including dev for build step)
-RUN npm ci --frozen-lockfile
+RUN npm ci
 
 # Copy source code
 COPY src/ ./src/
 
 # ─────────────────────── Stage 2: Production ───────────────────────────────
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 
 # Add non-root user for security
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -23,7 +23,7 @@ WORKDIR /app
 
 # Copy only production dependencies
 COPY package*.json ./
-RUN npm ci --only=production --frozen-lockfile && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy application source
 COPY --from=builder /app/src ./src

@@ -41,11 +41,10 @@ az aks create \
   --resource-group $RG_NAME \
   --name $AKS_CLUSTER \
   --node-count 3 \
-  --node-vm-size Standard_DS2_v2 \
+  --node-vm-size Standard_D2s_v5 \
   --enable-managed-identity \
   --attach-acr $ACR_NAME \
-  --generate-ssh-keys \
-  --kubernetes-version 1.29
+  --generate-ssh-keys
 
 echo "AKS cluster provisioned"
 ```

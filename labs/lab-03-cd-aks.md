@@ -201,6 +201,283 @@ kubectl get pods -n production
 
 ---
 
+## Task 9: Explore Ingress and External Access
+
+Each environment overlay includes an **Ingress** resource that exposes the InventoryAPI externally via an NGINX Ingress Controller.
+
+### 9.1 Verify the Ingress Controller is Running
+
+```bash
+# Check that the NGINX Ingress Controller is deployed
+kubectl get pods -n ingress-nginx
+# Expected: 1-2 pods in Running state
+
+# Get the external IP of the Ingress Controller
+kubectl get svc -n ingress-nginx
+# Expected: EXTERNAL-IP column shows a public IP or <pending>
+```
+
+> If no Ingress Controller exists, the admin will need to install one:
+> ```bash
+> helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+> helm install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
+> ```
+
+### 9.2 Inspect the Ingress Resources
+
+```bash
+# List all Ingress resources across namespaces
+kubectl get ingress --all-namespaces
+# Expected: one Ingress per environment (dev, staging, production)
+
+# Describe the dev Ingress to see routing rules
+kubectl describe ingress inventory-api-ingress -n dev
+```
+
+You should see:
+- **Host**: `dev.inventory-api.workshop.local`
+- **Path**: `/` → routes to `inventory-api` Service on port 80
+- **Annotations**: rewrite-target, `ingressClassName: nginx`
+
+### 9.3 Understand the Ingress Differences per Environment
+
+Open the overlay files and compare:
+
+| Environment | Host | TLS | Extra Annotations |
+|-------------|------|-----|-------------------|
+| **dev** | `dev.inventory-api.workshop.local` | ❌ No | Basic rewrite only |
+| **staging** | `staging.inventory-api.workshop.local` | ❌ No | Basic rewrite only |
+| **production** | `api.inventory.workshop.io` | ✅ Yes (cert-manager) | Rate limiting, body size limit |
+
+> **Key takeaway:** Production Ingress uses TLS via `cert-manager` and adds rate-limiting annotations. This is a common progressive hardening pattern.
+
+### 9.4 Test the Ingress (via port-forward if no DNS)
+
+If DNS is not configured for the workshop, you can test using port-forward:
+
+```bash
+# Port-forward the Ingress Controller to localhost
+kubectl port-forward svc/ingress-nginx-controller -n ingress-nginx 8080:80 &
+
+# Test the dev endpoint (pass the Host header manually)
+curl -H "Host: dev.inventory-api.workshop.local" http://localhost:8080/health
+# Expected: {"status":"healthy","version":"...","environment":"dev"}
+
+# Test the staging endpoint
+curl -H "Host: staging.inventory-api.workshop.local" http://localhost:8080/health
+
+# Clean up the port-forward
+kill %1
+```
+
+---
+
+## Task 10: Create and Use Kubernetes Secrets
+
+Beyond the ACR pull secret, real applications need secrets for API keys, database passwords, and other sensitive configuration.
+
+### 10.1 Create an Application Secret
+
+```bash
+# Create a secret with application-level values
+kubectl create secret generic inventory-api-secrets \
+  --from-literal=DB_CONNECTION_STRING="Server=mydb.database.windows.net;Database=inventorydb" \
+  --from-literal=API_KEY="workshop-demo-key-12345" \
+  --namespace=dev
+
+# Verify it was created
+kubectl get secrets -n dev
+# Expected: inventory-api-secrets in the list
+
+# Inspect the secret (values are base64 encoded)
+kubectl describe secret inventory-api-secrets -n dev
+# Note: values are NOT shown — only key names and byte sizes
+```
+
+### 10.2 Understand Secret Types
+
+```bash
+# List all secrets in dev namespace with their types
+kubectl get secrets -n dev -o custom-columns=NAME:.metadata.name,TYPE:.type
+```
+
+| Type | Used For |
+|------|----------|
+| `Opaque` | Generic key-value secrets (what you just created) |
+| `kubernetes.io/dockerconfigjson` | Image pull secrets (acr-pull-secret) |
+| `kubernetes.io/tls` | TLS certificates (used by production Ingress) |
+| `kubernetes.io/service-account-token` | Auto-generated for ServiceAccounts |
+
+### 10.3 Mount a Secret as Environment Variables
+
+To use the secret in a Deployment, you would add this to the container spec:
+
+```yaml
+# Example: mount secret as environment variables
+env:
+  - name: DB_CONNECTION_STRING
+    valueFrom:
+      secretKeyRef:
+        name: inventory-api-secrets
+        key: DB_CONNECTION_STRING
+  - name: API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: inventory-api-secrets
+        key: API_KEY
+```
+
+> **Key Point:** Secrets in Kubernetes are base64-encoded, **not encrypted** by default. For production clusters, enable **encryption at rest** and consider using **Azure Key Vault Provider for Secrets Store CSI Driver** to sync secrets from Azure Key Vault directly into pods.
+
+### 10.4 Clean Up the Demo Secret
+
+```bash
+kubectl delete secret inventory-api-secrets -n dev
+```
+
+---
+
+## Task 11: Monitor Your Deployment
+
+The InventoryAPI app includes a built-in Prometheus metrics endpoint at `/metrics`. This task teaches you how to inspect logs and metrics.
+
+### 11.1 View Pod Logs
+
+```bash
+# Get the pod name
+POD_NAME=$(kubectl get pods -n dev -l app=inventory-api -o jsonpath='{.items[0].metadata.name}')
+
+# View the last 50 lines of logs
+kubectl logs $POD_NAME -n dev --tail=50
+
+# Stream logs in real time (Ctrl+C to stop)
+kubectl logs $POD_NAME -n dev -f
+
+# View logs from the previous container (useful after a crash restart)
+kubectl logs $POD_NAME -n dev --previous
+# Expected: error if the pod hasn't restarted — that's normal
+```
+
+### 11.2 Check Resource Usage
+
+```bash
+# See CPU and memory usage per pod
+kubectl top pods -n dev
+# Expected: CPU in millicores, memory in Mi
+
+# See resource usage per node
+kubectl top nodes
+
+# Check if any pods are being OOMKilled or throttled
+kubectl describe pod $POD_NAME -n dev | grep -A5 "State:"
+```
+
+> If `kubectl top` shows `error: Metrics API not available`, the admin needs to install the metrics-server:
+> ```bash
+> kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+> ```
+
+### 11.3 Query the Prometheus Metrics Endpoint
+
+```bash
+# Port-forward to the pod directly
+kubectl port-forward $POD_NAME 3000:3000 -n dev &
+
+# Fetch the metrics
+curl http://localhost:3000/metrics
+# Expected: Prometheus-format text output including:
+#   http_requests_total{method="GET",route="/health",status_code="200"} 5
+#   process_cpu_user_seconds_total
+#   nodejs_heap_size_total_bytes
+
+# Clean up
+kill %1
+```
+
+### 11.4 Inspect Events and Deployment History
+
+```bash
+# View recent events in the dev namespace (useful for debugging)
+kubectl get events -n dev --sort-by=.metadata.creationTimestamp | tail -20
+
+# View deployment rollout history
+kubectl rollout history deployment/inventory-api -n dev
+
+# See details of a specific revision
+kubectl rollout history deployment/inventory-api -n dev --revision=1
+```
+
+### 11.5 Azure Monitor Quick Check (Optional)
+
+If Azure Monitor for Containers is enabled on the AKS cluster:
+
+1. Go to **Azure Portal** → your AKS cluster → **Insights**
+2. Click the **Containers** tab
+3. Find `inventory-api` pods across all namespaces
+4. Click on a pod → **Live logs** to see real-time log streaming from the portal
+5. Click **Metrics** → explore `CPU Usage`, `Memory Working Set`, `Pod Count`
+
+> **Key Point:** Azure Monitor for Containers automatically collects stdout/stderr logs and performance metrics. You do not need to install anything extra in your pods.
+
+---
+
+## ✅ Lab 3 Completion Checklist
+
+- [ ] Azure DevOps Environments created: Dev, Staging, Production
+- [ ] Manual approval configured for Production environment
+- [ ] CD pipeline imported and linked to CI pipeline
+- [ ] ACR pull secret created in all 3 namespaces
+- [ ] Full pipeline triggered: CI → CD (dev → staging → production)
+- [ ] Production deployment approved manually
+- [ ] Deployment verified with `kubectl get pods` across all namespaces
+- [ ] Rollback performed and verified
+- [ ] Ingress resources inspected across environments
+- [ ] Kubernetes Secret created and understood
+- [ ] Pod logs and resource usage checked
+- [ ] Prometheus `/metrics` endpoint queried
+- [ ] Deployment history and events reviewed
+
+---
+
+## Key Kubernetes Concepts Covered
+
+| Concept | Where Used |
+|---------|-----------|
+| Namespaces | Multi-environment isolation: dev, staging, production |
+| Deployments | Rolling updates with maxSurge/maxUnavailable |
+| Services (ClusterIP) | Internal networking between pods and Ingress |
+| Ingress | External access with host-based routing per environment |
+| Ingress TLS | Production uses cert-manager for HTTPS |
+| Secrets | Image pull secrets + application secrets |
+| ConfigMaps | Environment-specific configuration |
+| HPA | Auto-scaling based on CPU/memory (staging + production) |
+| PodDisruptionBudget | Production availability during disruptions |
+| Resource requests/limits | CPU and memory guardrails per environment |
+| Kustomize overlays | Environment-specific overrides |
+| Health probes | Liveness, readiness, startup probes |
+| `kubectl rollout` | Deployment history, status, undo |
+| `kubectl logs` | Container log inspection |
+| `kubectl top` | Resource usage monitoring |
+
+---
+
+## 🔧 Troubleshooting
+
+| Problem | Likely Cause | Fix |
+|---------|-------------|-----|
+| Pod stuck in `ImagePullBackOff` | ACR pull secret missing or incorrect image tag | Run `kubectl describe pod <name> -n <ns>` and check the Events section. Re-create the pull secret with Task 4 commands |
+| Pod stuck in `CrashLoopBackOff` | App is crashing on startup | Check logs: `kubectl logs <pod-name> -n <ns> --previous` |
+| Rollout timeout (5 min) | Pod failed readiness probe | Check: `kubectl describe pod <name>` → look at readiness probe events |
+| CD pipeline not triggering after CI | Pipeline resource `source` name doesn't match CI pipeline name | Ensure `source: 'InventoryAPI-CI'` matches exactly (case-sensitive) |
+| Environment shows "0 resources" | Kubernetes resource not linked during environment creation | Delete environment and re-create with the Kubernetes resource option |
+| Approval notification not received | You are not in the approvers list | Go to **Environments → InventoryAPI-Production → Approvals and checks** and add yourself |
+| `kubectl top` says "Metrics API not available" | Metrics server not installed on the cluster | Admin: `kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml` |
+| Ingress returns 404 | Host header doesn't match or Ingress controller not running | Verify with `kubectl get ingress -n <ns>` and check the host value. Ensure `ingress-nginx` pods are running |
+| Service shows no endpoints | No pods match the Service's label selector | Check: `kubectl get endpoints inventory-api -n <ns>` — should list pod IPs |
+| Port-forward disconnects frequently | Idle timeout or pod restart | Re-run the `kubectl port-forward` command |
+
+---
+
 ## Task 9: Explore Environment Deployment History
 
 1. Go to **Pipelines** → **Environments** → `InventoryAPI-Production`

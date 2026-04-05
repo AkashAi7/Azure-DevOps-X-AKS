@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Coverage & test output
+sample-app/coverage/
+sample-app/test-results/
+sample-app/junit.xml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
+
+# PPT content (local only)
+PPT-CONTENT.md

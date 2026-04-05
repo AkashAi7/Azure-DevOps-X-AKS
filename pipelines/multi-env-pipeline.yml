@@ -19,14 +19,20 @@ pr:
 
 # ─── Variables & Variable Groups ─────────────────────────────────────────────
 variables:
-  nodeVersion: '20'
-  imageName: 'inventory-api'
-  dockerfilePath: 'sample-app/Dockerfile'
-  buildContext: 'sample-app'
-  acrServiceConnection: 'ACR-ServiceConnection'
-  azureServiceConnection: 'AzureRM-ServiceConnection'
   - group: InventoryAPI-Common
   - group: InventoryAPI-Secrets
+  - name: nodeVersion
+    value: '22'
+  - name: imageName
+    value: 'inventory-api'
+  - name: dockerfilePath
+    value: 'sample-app/Dockerfile'
+  - name: buildContext
+    value: 'sample-app'
+  - name: acrServiceConnection
+    value: 'ACR-ServiceConnection'
+  - name: azureServiceConnection
+    value: 'AzureRM-ServiceConnection'
 
 # ─── Stage 1: Validate ───────────────────────────────────────────────────────
 stages:
@@ -38,8 +44,8 @@ stages:
   - template: templates/test-template.yml
     parameters:
       nodeVersions:
-        - '18'
         - '20'
+        - '22'
       workingDir: 'sample-app'
 
 # ─── Stage 2: Build ──────────────────────────────────────────────────────────

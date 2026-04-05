@@ -45,7 +45,26 @@ Use **Section C** when starting from absolute zero — no Azure DevOps organizat
 
 ## Required Tools
 
-Run these checks from the repository root before starting either path.
+You can install all prerequisites automatically using the dependency installation scripts:
+
+```powershell
+# Windows (Administrator PowerShell)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\install-dependencies.ps1
+```
+
+```bash
+# macOS / Linux
+chmod +x scripts/install-dependencies.sh
+./scripts/install-dependencies.sh
+```
+
+```bash
+# Cross-platform (Python 3.9+)
+python scripts/install-dependencies.py
+```
+
+Or verify manually:
 
 ```bash
 az --version
@@ -199,12 +218,13 @@ az aks create \
   --resource-group $RG_NAME \
   --name $AKS_CLUSTER \
   --node-count 3 \
-  --node-vm-size Standard_DS2_v2 \
+  --node-vm-size Standard_D2s_v5 \
   --enable-managed-identity \
   --attach-acr $ACR_NAME \
-  --generate-ssh-keys \
-  --kubernetes-version 1.29
+  --generate-ssh-keys
 ```
+
+> **Note:** By not specifying `--kubernetes-version`, AKS uses the latest stable default version. This avoids provisioning failures from pinning an EOL version.
 
 Validate:
 
@@ -378,6 +398,11 @@ chmod +x scripts/provision-infra.sh
 ./scripts/provision-infra.sh
 ```
 
+```bash
+# Cross-platform (Python 3.9+)
+python scripts/provision-infra.py
+```
+
 Before running, update the configuration block at the top of the script with the `ORG_URL`, `PROJECT_NAME`, subscription ID, AKS cluster name, and ACR name you used in the steps above.
 
 ### C17. Full End-to-End Validation
@@ -444,12 +469,13 @@ az aks create \
   --resource-group $RG_NAME \
   --name $AKS_CLUSTER \
   --node-count 3 \
-  --node-vm-size Standard_DS2_v2 \
+  --node-vm-size Standard_D2s_v5 \
   --enable-managed-identity \
   --attach-acr $ACR_NAME \
-  --generate-ssh-keys \
-  --kubernetes-version 1.29
+  --generate-ssh-keys
 ```
+
+> **Note:** By not specifying `--kubernetes-version`, AKS uses the latest stable default version.
 
 Validate:
 
@@ -686,6 +712,12 @@ chmod +x scripts/provision-infra.sh
 ./scripts/provision-infra.sh
 ```
 
+#### Option C: Python (cross-platform)
+
+```bash
+python scripts/provision-infra.py
+```
+
 ### B4. Understand What the Script Does
 
 The script is intended to set up the workshop inside an existing AKS and Azure DevOps footprint. It performs these actions:
@@ -749,7 +781,27 @@ Before handing the environment to participants, confirm that the project contain
 
 ## Admin Handoff Checklist
 
-Share these values with participants or facilitators before workshop day:
+The easiest way to hand off to participants is to fill in `workshop.env` and distribute it. This single file lets participants run the setup script with zero manual editing.
+
+### Fill in `workshop.env`
+
+Open `workshop.env` in the repo root and fill in the values from your provisioning:
+
+```env
+AZURE_SUBSCRIPTION_ID=00000000-0000-0000-0000-000000000000
+AKS_RESOURCE_GROUP=rg-workshop-aks
+AKS_CLUSTER_NAME=aks-workshop-01
+ACR_NAME=workshopacr0319
+AZDO_ORG=https://dev.azure.com/contoso
+AZDO_PROJECT=workshop-project
+AZDO_CLONE_URL=https://contoso@dev.azure.com/contoso/workshop-project/_git/Fortis-Workshop
+```
+
+### Distribute to participants
+
+Share `workshop.env` via email, Teams, USB, or include it in the repo before participants clone. When they run the setup script, it picks up all values automatically.
+
+### Also share these details verbally or in a message
 
 - Azure subscription ID to use
 - Azure DevOps organization URL

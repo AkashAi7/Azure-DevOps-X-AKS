@@ -198,6 +198,21 @@ The facilitator will demonstrate:
 - [ ] Switched to Agent Mode
 - [ ] Resource quotas added to namespace.yaml via Agent Mode
 - [ ] Deployment runbook generated at `docs/runbook-deployment.md`
+
+---
+
+## 🔧 Troubleshooting
+
+| Problem | Likely Cause | Fix |
+|---------|-------------|-----|
+| Copilot shows "Not signed in" | GitHub session expired or Copilot license not assigned | Click the Copilot icon in the status bar → Sign in. Verify your license at `github.com/settings/copilot` |
+| Inline completions not appearing | Copilot disabled for the current language or file | Check: **Settings → GitHub Copilot → Enable for: YAML, JavaScript, Markdown** |
+| Copilot Chat returns "I can't assist with that" | Prompt triggered a content filter | Rephrase your question. Avoid asking Copilot to generate credentials or bypass security controls |
+| Agent Mode not available in the dropdown | Copilot Chat extension version too old | Update both `GitHub Copilot` and `GitHub Copilot Chat` extensions to the latest version |
+| Agent Mode says "I don't have access to files" | Workspace not opened as a folder | Open VS Code with **File → Open Folder** (not just a single file) |
+| `/fix` doesn't detect YAML errors | File not saved or wrong language mode | Save the file first. Check the language mode in the VS Code status bar — it should say `YAML`, not `Plain Text` |
+| `kubectl apply --dry-run=client` fails on generated YAML | Copilot generated invalid apiVersion or kind | Verify the apiVersion against `kubectl api-resources`. Common fix: `v1` vs `apps/v1` |
+| Copilot suggestions are slow or timeout | Network latency or GitHub service degradation | Check [githubstatus.com](https://githubstatus.com). Try closing other VS Code windows to reduce context size |
 - [ ] Watched PR summary demo (facilitator-led)
 
 ---

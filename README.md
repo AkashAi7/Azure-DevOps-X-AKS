@@ -20,9 +20,12 @@ A complete end-to-end DevOps pipeline that:
 
 1. **Builds** a containerized Node.js microservice application
 2. **Tests** it automatically on every commit
-3. **Publishes** a Docker image to Azure Container Registry (ACR)
+3. **Publishes** a Docker image to Azure Container Registry (ACR) and npm packages to Azure Artifacts
 4. **Deploys** to three environments: `dev` → `staging` → `production` on AKS
-5. **Uses GitHub Copilot** as an AI-powered DevOps co-pilot
+5. **Secures** the pipeline with Key Vault, branch policies, and approval gates
+6. **Monitors** deployments with logs, Prometheus metrics, and Azure Monitor
+7. **Tests** with Azure Test Plans and tracks progress with Dashboards
+8. **Uses GitHub Copilot** as an AI-powered DevOps co-pilot
 
 ---
 
@@ -104,7 +107,7 @@ Fortis-Workshop/
 | Azure CLI | 2.55+ | `az --version` |
 | kubectl | 1.28+ | `kubectl version` |
 | Docker Desktop | Latest | Running locally |
-| Node.js | 18+ | LTS recommended |
+| Node.js | 20+ | LTS recommended |
 | Git | Latest | |
 
 ### Azure Resources (Pre-Provisioned)

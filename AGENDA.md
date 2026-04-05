@@ -208,6 +208,8 @@ Participants will:
 3. Configure the ACR service connection
 4. Trigger a pipeline run by pushing a commit
 5. Observe test results and container image in ACR
+6. Publish an npm package to Azure Artifacts feed
+7. Explore Artifacts feed features: upstream sources, promotion, permissions
 
 ---
 
@@ -261,6 +263,10 @@ Participants will:
 4. Deploy and watch the rollout
 5. Use `kubectl rollout status` to verify
 6. Simulate a bad deploy and perform rollback
+7. Explore Ingress resources and understand per-environment routing
+8. Create and inspect Kubernetes Secrets
+9. Monitor the deployment: pod logs, resource usage, Prometheus metrics
+10. Review deployment history and cluster events
 
 ---
 
@@ -312,16 +318,25 @@ variables:
 - Template expressions: `${{ if eq(...) }}`
 - Step templates, job templates, stage templates
 
-#### 4.4 Pipeline Monitoring & Notifications (7 min)
-- Pipeline analytics dashboard
-- Test flakiness detection
-- Notification subscriptions (Teams, email)
-- Service hooks for external integrations
-- Azure Monitor integration for deployment gates
+#### 4.4 Azure Test Plans — Hands-On (7 min)
+- Creating test plans, suites, and test cases
+- Executing manual test cases with pass/fail steps
+- Linking test cases to User Stories for traceability
+- Viewing test results charts and trends
+- Exploratory testing with the Test & Feedback extension
 
-### Lab 4 (integrated): **Configure Branch Policies + Secure a Pipeline**
+#### 4.5 Azure DevOps Dashboards (5 min)
+- Creating a team dashboard
+- Adding pipeline status, test trend, and work item chart widgets
+- Using dashboards for project health visibility
+
+#### 4.6 Pipeline Notifications (3 min)
+- Setting up pipeline failure notifications
+- Service hooks for Teams/Slack/webhooks integration
+
+### Lab 4 (integrated): **Configure Branch Policies + Secure a Pipeline + Test Plans + Dashboard**
 > Quick exercises embedded within Module 4 demo
-> See `labs/lab-04-multi-environment.md` — Section "Security Hardening"
+> See `labs/lab-04-multi-environment.md`
 
 ---
 

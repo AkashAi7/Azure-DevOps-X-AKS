@@ -53,9 +53,9 @@ metadata:
   name: inventory-api-ingress
   namespace: dev
   annotations:
-    kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/rewrite-target: "/"
 spec:
+  ingressClassName: nginx
   rules:
     - host: dev.inventory-api.workshop.local
       http:

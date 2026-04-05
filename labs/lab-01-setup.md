@@ -25,6 +25,59 @@ If any of these are missing, stop here and ask the admin before moving forward.
 
 ---
 
+## Quick-Start: Automated Setup (Recommended)
+
+Your facilitator should have shared a pre-filled `workshop.env` file. This single file contains every value you need — just drop it in the repo root and run the scripts. **No manual editing required.**
+
+### Step 1 — Place `workshop.env` in the repo root
+
+Copy the `workshop.env` file you received from the facilitator into the root of the `Fortis-Workshop` folder (next to `README.md`). If you don't have one, ask the facilitator — or fill in the template at `workshop.env` yourself.
+
+### Step 2 — Install dependencies (skip if tools are already installed)
+
+```powershell
+# Windows (Administrator PowerShell)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\install-dependencies.ps1
+```
+
+```bash
+# macOS / Linux
+chmod +x scripts/install-dependencies.sh
+./scripts/install-dependencies.sh
+```
+
+```bash
+# Cross-platform (Python 3.9+)
+python scripts/install-dependencies.py
+```
+
+### Step 3 — Run the participant setup
+
+```powershell
+# Windows
+.\scripts\participant-setup.ps1
+```
+
+```bash
+# macOS / Linux
+chmod +x scripts/participant-setup.sh
+./scripts/participant-setup.sh
+```
+
+```bash
+# Cross-platform (Python 3.9+)
+python scripts/participant-setup.py
+```
+
+The script will auto-detect `workshop.env`, connect you to Azure, AKS, and Azure DevOps, clone the repo, and run the sample app tests. You should see `You are ready for the workshop!` at the end.
+
+> **Fallback:** If you don't have `workshop.env`, you can still edit the configuration block at the top of any participant-setup script directly.
+
+If you prefer to run each step manually, continue below.
+
+---
+
 ## Task 1: Verify Your Local Tooling
 
 Run these commands in your terminal:
@@ -46,7 +99,7 @@ docker run hello-world
 # 4. Node.js
 node --version
 npm --version
-# Expected: v18+ or v20+
+# Expected: v20+ or v22+
 
 # 5. Git
 git --version
@@ -287,3 +340,21 @@ kubectl describe namespace dev
 # Check ACR images (ask facilitator for ACR name)
 az acr repository list --name <acr-name> -o table
 ```
+
+---
+
+## 🔧 Troubleshooting
+
+| Problem | Likely Cause | Fix |
+|---------|-------------|-----|
+| `az login` opens browser but nothing happens | Browser blocked by corporate proxy or MFA timeout | Try `az login --use-device-code` instead |
+| `az account set` fails: subscription not found | Not logged into the correct tenant | Run `az login --tenant <tenant-id>` with the tenant ID from the admin |
+| `kubectl get nodes` returns "No resources found" | Wrong kubeconfig context or cluster not accessible | Re-run `az aks get-credentials` and verify the cluster name |
+| `kubectl get nodes` returns connection refused | Corporate firewall blocking AKS API server | Ask admin if the cluster has private link enabled; you may need a VPN or jump box |
+| `npm install` fails with permission errors | Global npm directory permission issue (macOS/Linux) | Use `sudo npm install` or fix npm permissions: `npm config set prefix ~/.npm-global` |
+| `npm test` fails with "Cannot find module" | Dependencies not installed | Run `cd sample-app && npm install` first |
+| Docker commands fail: "Cannot connect to daemon" | Docker Desktop not running | Start Docker Desktop and wait for it to be ready (green icon) |
+| `docker build` fails: "no space left on device" | Docker disk image is full | Run `docker system prune -a` to free space |
+| Azure DevOps shows "TF400813: Resource not available" | Access not granted to the project | Ask the admin to add your account to the project with Contributor access |
+| Boards backlog is empty | Area path or iteration filter is hiding items | Click the filter dropdowns at the top and set to **All** |
+| Git clone fails with 403 | PAT expired or wrong credentials | Generate a new PAT in Azure DevOps: **User Settings → Personal Access Tokens** |

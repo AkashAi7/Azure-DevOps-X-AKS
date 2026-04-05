@@ -75,7 +75,7 @@ While (or after) the pipeline runs, explore each part:
 ### 4.1 Pipeline Overview
 - Click on the running pipeline
 - Note the two stages: **Validate** and **Build**
-- Observe the matrix strategy — two jobs run in parallel for Node 18 and Node 20
+- Observe the matrix strategy — two jobs run in parallel for Node 20 and Node 22
 
 ### 4.2 Validate Stage — Test Results
 1. After the Validate stage completes, click on the **Tests** tab at the top
@@ -149,6 +149,99 @@ This is the `Cache@2` task in action, saving ~20-30 seconds per run.
 
 ---
 
+## Task 9: Publish an npm Package to Azure Artifacts
+
+Azure Artifacts is Azure DevOps' built-in package management service. In this task you will publish the `inventory-api` package to the workshop Artifacts feed and verify it.
+
+### 9.1 Connect to the Artifacts Feed
+
+1. In Azure DevOps, go to **Artifacts**
+2. Click on the `inventory-api-packages` feed (created during admin setup)
+3. Click **Connect to feed** → **npm**
+4. Note the feed URL — you will use it below
+
+### 9.2 Create a `.npmrc` File for the Feed
+
+In your local repo, create a `.npmrc` file in the `sample-app/` directory:
+
+```bash
+cd sample-app
+
+cat > .npmrc << 'EOF'
+registry=https://pkgs.dev.azure.com/<your-org>/<your-project>/_packaging/inventory-api-packages/npm/registry/
+always-auth=true
+EOF
+```
+
+> Replace `<your-org>` and `<your-project>` with your actual Azure DevOps organization and project names. You can copy the exact URL from the **Connect to feed** page.
+
+### 9.3 Authenticate to the Feed
+
+```bash
+# Install the Azure Artifacts credential provider
+npx vsts-npm-auth -config .npmrc
+
+# Verify authentication works
+npm whoami --registry https://pkgs.dev.azure.com/<your-org>/<your-project>/_packaging/inventory-api-packages/npm/registry/
+```
+
+### 9.4 Publish the Package
+
+```bash
+# From sample-app/
+npm publish
+# Expected: + inventory-api@1.0.0
+```
+
+### 9.5 Verify in the Azure DevOps Portal
+
+1. Go to **Artifacts** → `inventory-api-packages`
+2. You should see `inventory-api` with version `1.0.0`
+3. Click on the package to see:
+   - **Overview**: description, author, license
+   - **Versions**: list of published versions
+   - **Dependencies**: express, prom-client, uuid
+
+### 9.6 Understand Pipeline-Based Publishing
+
+The CI pipeline can also publish to Artifacts automatically. Look at this pattern (you do not need to add it now, but understand how it works):
+
+```yaml
+# Example: Publish npm package from a pipeline
+- task: Npm@1
+  displayName: 'Publish to Artifacts feed'
+  inputs:
+    command: 'publish'
+    workingDir: 'sample-app'
+    publishRegistry: 'useFeed'
+    publishFeed: '<project>/inventory-api-packages'
+```
+
+> **Key Point:** Artifacts feeds support **upstream sources** — they can proxy packages from the public npm registry. This means your pipeline can install both public packages and your private packages from a single `.npmrc` config.
+
+---
+
+## Task 10: Explore the Artifacts Feed Features
+
+1. In the `inventory-api-packages` feed, click **Feed settings** (gear icon)
+2. Explore these tabs:
+
+| Tab | What it does |
+|-----|-------------|
+| **Upstream sources** | Proxy public registries (npmjs.com) — packages are cached locally on first download |
+| **Permissions** | Control who can read/publish packages — `Reader`, `Collaborator`, `Contributor` |
+| **Views** | Promote packages: `@local` → `@prerelease` → `@release` for quality gating |
+| **Retention** | Auto-delete old package versions to save storage |
+
+3. Try promoting your package:
+   - Click on your `inventory-api@1.0.0` package
+   - Click **Promote** → select `@prerelease` view
+   - Now the package is accessible via the `@prerelease` view URL
+
+> **Why this matters:** In real teams, you publish every build to `@local`, promote tested builds to `@prerelease`, and promote release-ready builds to `@release`. Downstream consumers can pin to a specific quality level.
+
+---
+
 ## ✅ Lab 2 Completion Checklist
 
 - [ ] `ACR-ServiceConnection` service connection exists
@@ -158,6 +251,9 @@ This is the `Cache@2` task in action, saving ~20-30 seconds per run.
 - [ ] Docker image visible in ACR with a new tag
 - [ ] PR validation pipeline triggered (runs Validate only)
 - [ ] Understand why the Build stage is skipped on PRs
+- [ ] npm package published to Azure Artifacts feed
+- [ ] Package visible in Artifacts portal with version info
+- [ ] Understand upstream sources and package promotion
 
 ---
 
@@ -172,6 +268,7 @@ This is the `Cache@2` task in action, saving ~20-30 seconds per run.
 | `PublishTestResults@2` | Makes test results visible in UI |
 | `Docker@2 buildAndPush` | Build image + push to ACR in one step |
 | `PublishPipelineArtifact@1` | Pass data (image tag) between stages |
+| `Npm@1` publish | Publish packages to Artifacts feed |
 
 ---
 
@@ -190,3 +287,18 @@ git push origin feature/lab02-pr-test
 ```
 
 Observe: the PR pipeline run fails. The PR cannot be merged because of the branch policy requiring a passing build.
+
+---
+
+## 🔧 Troubleshooting
+
+| Problem | Likely Cause | Fix |
+|---------|-------------|-----|
+| Pipeline stuck on "Waiting for agent" | No available hosted agents or free parallelism exhausted | Check **Organization Settings → Parallel jobs** — free tier gets 1 parallel job with limited minutes |
+| `npm ci` fails with `ERESOLVE` | Dependency version conflict | Run `npm install` locally first, then commit the updated `package-lock.json` |
+| Docker build fails: "unauthorized" | ACR service connection not configured or expired | Re-verify `ACR-ServiceConnection` in **Project Settings → Service connections** |
+| Test results tab is empty | Test file not in JUnit XML format or wrong path | Check `testResultsFiles` path — it must match `sample-app/test-results/junit.xml` |
+| Cache not restoring | `package-lock.json` changed between runs | Expected behavior — cache key includes the lock file hash |
+| `npm publish` fails with 403 | Missing permissions on Artifacts feed | Go to **Artifacts → Feed Settings → Permissions** and add yourself as `Contributor` |
+| `npm publish` fails with 409 | Package version already exists | Bump the `version` in `package.json` and try again |
+| Pipeline YAML shows red squiggles | Indentation error or unknown task name | Use the Azure DevOps YAML editor's **Validate** button before saving |
