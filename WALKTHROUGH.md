@@ -46,24 +46,22 @@
 
 1. **Get the config file** — The facilitator has filled in `workshop.env` with all Azure & Azure DevOps details. Copy it to your repo root.
 
-2. **Run the participant setup script:**
+2. **Run the participant quick-setup script:**
    ```powershell
    # Windows
-   .\scripts\participant-setup.ps1
+   .\scripts\participant-quick-setup.ps1
 
    # macOS / Linux
-   bash scripts/participant-setup.sh
-
-   # Python
-   python scripts/participant-setup.py
+   bash scripts/participant-quick-setup.sh
    ```
    The script will:
    - Load config from `workshop.env`
-   - Validate all tools are installed
+   - Check all required tools are installed (and show install commands for any missing)
    - Log you into Azure and connect to AKS
    - Verify your namespace access (dev / staging / production)
-   - Clone the workshop repo from Azure Repos
-   - Run `npm test` to prove the sample app works
+   - Validate Azure DevOps access
+   - Clone the workshop repo from Azure Repos (or update if already cloned)
+   - Run `npm install` and `npm test` to prove the sample app works
 
 3. **Verify you can see:**
    - Azure DevOps Project in the browser (`https://dev.azure.com/<org>/<project>`)

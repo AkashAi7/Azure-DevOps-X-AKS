@@ -25,9 +25,9 @@ If any of these are missing, stop here and ask the admin before moving forward.
 
 ---
 
-## Quick-Start: Automated Setup (Recommended)
+## ⚡ Quick-Start: Automated Setup (Recommended)
 
-Your facilitator should have shared a pre-filled `workshop.env` file. This single file contains every value you need — just drop it in the repo root and run the scripts. **No manual editing required.**
+Your facilitator should have shared a pre-filled `workshop.env` file. This single file contains every value you need — just drop it in the repo root and run the setup script. **No manual editing required.**
 
 ### Step 1 — Place `workshop.env` in the repo root
 
@@ -52,27 +52,33 @@ chmod +x scripts/install-dependencies.sh
 python scripts/install-dependencies.py
 ```
 
-### Step 3 — Run the participant setup
+### Step 3 — Run the participant quick-setup
 
 ```powershell
-# Windows
-.\scripts\participant-setup.ps1
+# Windows (PowerShell)
+.\scripts\participant-quick-setup.ps1
 ```
 
 ```bash
 # macOS / Linux
-chmod +x scripts/participant-setup.sh
-./scripts/participant-setup.sh
+chmod +x scripts/participant-quick-setup.sh
+./scripts/participant-quick-setup.sh
 ```
 
-```bash
-# Cross-platform (Python 3.9+)
-python scripts/participant-setup.py
-```
+The script automatically:
+1. Checks all required tools (Azure CLI, kubectl, Docker, Node.js, Git) and shows install commands for anything missing
+2. Logs you into Azure and sets the correct subscription
+3. Connects `kubectl` to the workshop AKS cluster
+4. Verifies cluster connectivity and `dev`/`staging`/`production` namespaces
+5. Validates Azure DevOps access
+6. Clones the workshop repo from Azure Repos (or updates it if already cloned)
+7. Runs `npm install` and `npm test` on the sample app
 
-The script will auto-detect `workshop.env`, connect you to Azure, AKS, and Azure DevOps, clone the repo, and run the sample app tests. You should see `You are ready for the workshop!` at the end.
+You should see **"You are ready for the workshop!"** at the end.
 
-> **Fallback:** If you don't have `workshop.env`, you can still edit the configuration block at the top of any participant-setup script directly.
+> **Fallback:** If you don't have `workshop.env`, you can still edit the configuration block at the top of the participant-quick-setup script directly.
+
+> **Note:** The legacy `participant-setup.ps1` / `participant-setup.sh` / `participant-setup.py` scripts still work but the quick-setup versions above are recommended as they provide cleaner output, better error messages, and more thorough validation.
 
 If you prefer to run each step manually, continue below.
 

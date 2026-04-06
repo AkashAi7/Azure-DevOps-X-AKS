@@ -122,6 +122,28 @@ Fortis-Workshop/
 
 ## Quick Start for Facilitators
 
+### Option A: One-Command Setup (Recommended)
+
+```bash
+# 1. Clone this repository
+git clone <this-repo-url>
+cd Fortis-Workshop
+
+# 2. Edit the config variables at the top of the script
+code scripts/admin-quick-setup.ps1   # or admin-quick-setup.sh
+
+# 3. Run the admin quick-setup (creates Azure infra + Azure DevOps project + everything)
+.\scripts\admin-quick-setup.ps1      # Windows PowerShell
+# or
+./scripts/admin-quick-setup.sh        # macOS / Linux
+
+# 4. Complete the ONE manual step: link InventoryAPI-Secrets variable group to Key Vault
+# 5. Distribute the auto-generated workshop.env to participants
+# 6. Ask participants to run: .\scripts\participant-quick-setup.ps1 (see lab-01-setup.md)
+```
+
+### Option B: Step-by-Step Manual Setup
+
 ```bash
 # 1. Clone this repository into your Azure DevOps project
 git clone <this-repo-url>

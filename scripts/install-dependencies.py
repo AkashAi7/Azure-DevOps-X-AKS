@@ -56,8 +56,10 @@ def command_exists(cmd):
     return shutil.which(cmd) is not None
 
 
-def run(cmd, check=False, capture=False, shell=False):
+def run(cmd, check=False, capture=False, shell=None):
     """Run a command, optionally capturing output."""
+    if shell is None:
+        shell = (platform.system() == "Windows")
     kwargs = {"shell": shell}
     if capture:
         kwargs["stdout"] = subprocess.PIPE
@@ -67,8 +69,10 @@ def run(cmd, check=False, capture=False, shell=False):
     return result
 
 
-def run_output(cmd, shell=False):
+def run_output(cmd, shell=None):
     """Run a command and return stripped stdout."""
+    if shell is None:
+        shell = (platform.system() == "Windows")
     try:
         r = subprocess.run(
             cmd if shell else cmd.split(),

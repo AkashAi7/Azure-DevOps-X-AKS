@@ -100,7 +100,9 @@ def command_exists(cmd):
     return shutil.which(cmd) is not None
 
 
-def run(cmd, check=False, capture=False, shell=False):
+def run(cmd, check=False, capture=False, shell=None):
+    if shell is None:
+        shell = (platform.system() == "Windows")
     kwargs = {"shell": shell}
     if capture:
         kwargs["stdout"] = subprocess.PIPE
@@ -109,7 +111,9 @@ def run(cmd, check=False, capture=False, shell=False):
     return subprocess.run(cmd if shell else cmd.split(), check=check, **kwargs)
 
 
-def run_output(cmd, shell=False):
+def run_output(cmd, shell=None):
+    if shell is None:
+        shell = (platform.system() == "Windows")
     try:
         r = subprocess.run(
             cmd if shell else cmd.split(),

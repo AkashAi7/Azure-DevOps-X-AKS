@@ -22,9 +22,114 @@ By the end of this lab, you should have:
 
 ---
 
-## Choose Your Starting Point
+## ⚡ Quick Path: One-Command Setup (Recommended)
 
-Use this decision guide before doing anything else.
+Before reading the full manual sections below, consider using the **automated admin quick-setup script**. It handles everything — Azure infrastructure, AKS configuration, Azure DevOps project creation, service connections, variable groups, environments, Boards seed data, Artifacts feed, Test Plans, demo data, and `workshop.env` generation — in a single run.
+
+### Prerequisites
+
+- Azure CLI 2.55+ with the `azure-devops` extension (`az extension add --name azure-devops`)
+- `kubectl` 1.28+
+- `git`, `node`, `npm`
+- Permissions: Azure subscription Owner/Contributor + Azure DevOps Project Collection Administrator
+- An existing Azure DevOps organization (create one at [dev.azure.com](https://dev.azure.com) if needed)
+
+### Step 1 — Edit the configuration block
+
+Open `scripts/admin-quick-setup.ps1` (or `.sh`) and fill in the variables at the top:
+
+```powershell
+$SUBSCRIPTION_ID   = "<your-azure-subscription-id>"
+$LOCATION          = "eastus"                         # Azure region
+$RG_NAME           = "rg-workshop-aks"                # Resource group name
+$AKS_CLUSTER       = "aks-workshop-01"                # AKS cluster name
+$ACR_NAME          = "workshopacr0319"                # ACR name (globally unique, no hyphens)
+$KV_NAME           = "kv-workshop-0319"               # Key Vault name (globally unique)
+$AZDO_ORG          = "https://dev.azure.com/contoso"  # Your Azure DevOps org URL
+$PROJECT_NAME      = "workshop-project"               # Azure DevOps project name
+```
+
+### Step 2 — Run the script
+
+```powershell
+# Windows (PowerShell — run as Administrator)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\admin-quick-setup.ps1
+```
+
+```bash
+# macOS / Linux
+chmod +x scripts/admin-quick-setup.sh
+./scripts/admin-quick-setup.sh
+```
+
+### Step 3 — Watch the 9 phases execute
+
+The script runs through these phases automatically:
+
+| Phase | What it does |
+|-------|-------------|
+| **1. Azure Infrastructure** | Creates Resource Group, ACR, AKS (3 nodes), Key Vault, stores ACR password |
+| **2. AKS Configuration** | Gets credentials, creates `dev`/`staging`/`production` namespaces, creates ACR pull secrets |
+| **3. Azure DevOps Core** | Creates project, pushes repo to Azure Repos |
+| **4. Service Connections** | Creates `AzureRM-ServiceConnection` and `ACR-ServiceConnection` via service principal |
+| **5. DevOps Assets** | Creates variable groups, Boards seed data, imports pipelines, creates Artifacts feed + Test Plan |
+| **6. Environments** | Creates `InventoryAPI-Dev`, `InventoryAPI-Staging`, `InventoryAPI-Production` via REST API |
+| **7. Demo Data** | Creates feature branch, broken YAML file, open PR, branch policies on `main` |
+| **8. workshop.env** | Auto-generates `workshop.env` with all resource values — ready to distribute to participants |
+| **9. Validation** | Runs a full validation report: AKS nodes, namespaces, ACR, AzDO project, pipelines, environments |
+
+### Step 4 — Complete the one manual step
+
+The script cannot link `InventoryAPI-Secrets` variable group to Key Vault (Azure DevOps CLI limitation). Do this manually:
+
+1. Go to **Pipelines → Library → + Variable group**
+2. Name: `InventoryAPI-Secrets`
+3. Toggle **Link secrets from an Azure Key Vault as variables**
+4. Service connection: `AzureRM-ServiceConnection`
+5. Key Vault: the Key Vault name from your config (e.g., `kv-workshop-0319`)
+6. Add secret: `acr-admin-password`
+7. **Save**
+
+### Step 5 — Distribute `workshop.env` to participants
+
+The script auto-generated `workshop.env` in the repo root. Share this file with participants via Teams, email, or USB. They will use it with `participant-quick-setup.ps1` in Lab 01.
+
+### Step 6 — Verify everything is ready
+
+The script prints a validation summary at the end. Confirm:
+
+- [ ] AKS nodes are `Ready`
+- [ ] Namespaces `dev`, `staging`, `production` exist
+- [ ] ACR is accessible
+- [ ] Azure DevOps project has repo, pipelines, variable groups, environments
+- [ ] `workshop.env` is filled in
+
+### Optional flags
+
+| Flag | Purpose |
+|------|---------|
+| `-SkipInfra` | Skip Phase 1 (use when Azure resources already exist — brownfield) |
+| `-SkipDemoData` | Skip Phase 7 (no feature branch, broken YAML, or PR) |
+| `-NonInteractive` | No confirmation prompts (for CI/automation) |
+
+```powershell
+# Example: Brownfield — only set up Azure DevOps, skip infra
+.\scripts\admin-quick-setup.ps1 -SkipInfra
+```
+
+```bash
+# Bash equivalent
+./scripts/admin-quick-setup.sh --skip-infra
+```
+
+> **After the quick setup completes, skip to the [Admin Handoff Checklist](#admin-handoff-checklist).** The manual sections below are provided as reference if you prefer step-by-step control or need to troubleshoot individual components.
+
+---
+
+## Choose Your Starting Point (Manual Path)
+
+Use this decision guide if you prefer to run each step manually instead of using the quick-setup script above.
 
 | Scenario | Use this section | Typical situation |
 |---|---|---|
@@ -384,17 +489,31 @@ done
 
 ### C16. Seed the Azure DevOps Project
 
+> **Recommended:** Instead of running these legacy scripts, use `admin-quick-setup.ps1 -SkipInfra` which handles seeding AND creates service connections, environments, and demo data automatically. See the [Quick Path](#-quick-path-one-command-setup-recommended) at the top of this document.
+
 Run the bootstrap script from the repo root to finish seeding Boards, artifacts, and test plans:
 
 ```powershell
-# PowerShell
+# PowerShell — Quick setup (recommended, handles everything)
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\admin-quick-setup.ps1 -SkipInfra
+```
+
+```bash
+# Bash — Quick setup (recommended)
+chmod +x scripts/admin-quick-setup.sh
+./scripts/admin-quick-setup.sh --skip-infra
+```
+
+Or use the legacy scripts (seeding only, no service connections or environments):
+
+```powershell
+# PowerShell (legacy)
 .\scripts\provision-infra.ps1
 ```
 
 ```bash
-# Bash
-chmod +x scripts/provision-infra.sh
+# Bash (legacy)
 ./scripts/provision-infra.sh
 ```
 
@@ -632,14 +751,26 @@ done
 
 ### A13. Seed the Azure DevOps Project
 
-If you want the project seeded automatically with Boards items, variable groups, test plans, artifacts, and imported pipelines, use the brownfield bootstrap script after the greenfield infrastructure exists.
+> **Recommended:** Instead of running the legacy provision scripts, use `admin-quick-setup.ps1 -SkipInfra` which handles seeding AND creates service connections, environments, and demo data automatically. See the [Quick Path](#-quick-path-one-command-setup-recommended) at the top of this document.
 
-Before running it, update the configuration block in one of these files:
+If you want the project seeded automatically with Boards items, variable groups, test plans, artifacts, and imported pipelines, use the admin quick-setup script with `-SkipInfra` (since infrastructure already exists):
+
+```powershell
+# PowerShell (recommended — handles everything)
+.\scripts\admin-quick-setup.ps1 -SkipInfra
+```
+
+```bash
+# Bash (recommended)
+./scripts/admin-quick-setup.sh --skip-infra
+```
+
+Or use the legacy brownfield bootstrap scripts (seeding only, no service connections or environments):
 
 - `scripts/provision-infra.ps1`
 - `scripts/provision-infra.sh`
 
-Then run the appropriate script from the repo root.
+Before running any script, update the configuration block at the top with the `ORG_URL`, `PROJECT_NAME`, subscription ID, AKS cluster name, and ACR name you used in the steps above.
 
 ### A14. Do a Full Validation Run
 
@@ -698,21 +829,37 @@ Required values:
 
 ### B3. Run the Bootstrap Script
 
-#### Option A: PowerShell
+> **Recommended:** Use `admin-quick-setup.ps1 -SkipInfra` instead — it does everything below AND creates service connections, environments, and demo data. See the [Quick Path](#-quick-path-one-command-setup-recommended).
+
+#### Option A: Admin Quick-Setup (recommended)
+
+```powershell
+# PowerShell — handles seeding + service connections + environments + demo data
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\scripts\admin-quick-setup.ps1 -SkipInfra
+```
+
+```bash
+# Bash
+chmod +x scripts/admin-quick-setup.sh
+./scripts/admin-quick-setup.sh --skip-infra
+```
+
+#### Option B: Legacy PowerShell (seeding only)
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\scripts\provision-infra.ps1
 ```
 
-#### Option B: Bash
+#### Option C: Legacy Bash (seeding only)
 
 ```bash
 chmod +x scripts/provision-infra.sh
 ./scripts/provision-infra.sh
 ```
 
-#### Option C: Python (cross-platform)
+#### Option D: Legacy Python (cross-platform, seeding only)
 
 ```bash
 python scripts/provision-infra.py

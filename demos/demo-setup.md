@@ -1,7 +1,26 @@
 # Facilitator Demo Setup Guide
 
-**Time required:** 2-3 hours before the workshop  
+**Time required:** 2-3 hours before the workshop (manual) or ~30 minutes (automated)  
 **Purpose:** Pre-configure all Azure resources so live demos run smoothly
+
+---
+
+> ## ⚡ Prefer the Automated Path?
+>
+> Instead of running the manual commands below, use the **admin quick-setup script** which handles all Azure infrastructure, AKS configuration, Azure DevOps project creation, service connections, variable groups, environments, and demo data in one run:
+>
+> ```powershell
+> # Windows (PowerShell)
+> .\scripts\admin-quick-setup.ps1
+> ```
+>
+> ```bash
+> # macOS / Linux
+> ./scripts/admin-quick-setup.sh
+> ```
+>
+> See [lab-00-admin-setup.md](../labs/lab-00-admin-setup.md) for full details and configuration options.
+> The manual steps below are kept as reference if you prefer step-by-step control.
 
 ---
 
