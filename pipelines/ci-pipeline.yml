@@ -40,7 +40,7 @@ variables:
 
 # ─── Build Agents ────────────────────────────────────────────────────────────
 pool:
-  vmImage: 'ubuntu-latest'         # Microsoft-hosted agent
+  name: 'Default'                  # Self-hosted agent pool
 
 # ─── Stages ─────────────────────────────────────────────────────────────────
 stages:
@@ -86,9 +86,9 @@ stages:
       displayName: 'Run ESLint'
       continueOnError: false
 
-    - script: |
+    - pwsh: |
         cd sample-app
-        mkdir -p test-results
+        New-Item -ItemType Directory -Path test-results -Force | Out-Null
         npm run test:ci
       displayName: 'Run unit tests'
       env:
@@ -129,11 +129,11 @@ stages:
     steps:
 
     # Generate image tag: <short-commit-sha>-<build-id>
-    - script: |
-        SHORT_SHA=$(echo "$(Build.SourceVersion)" | cut -c1-8)
-        IMAGE_TAG="${SHORT_SHA}-$(Build.BuildId)"
-        echo "##vso[task.setvariable variable=IMAGE_TAG;isOutput=true]${IMAGE_TAG}"
-        echo "Image tag: ${IMAGE_TAG}"
+    - pwsh: |
+        $shortSha = "$(Build.SourceVersion)".Substring(0,8)
+        $imageTag = "$shortSha-$(Build.BuildId)"
+        Write-Host "##vso[task.setvariable variable=IMAGE_TAG;isOutput=true]$imageTag"
+        Write-Host "Image tag: $imageTag"
       displayName: 'Generate image tag'
       name: SetImageTag
 
@@ -151,9 +151,9 @@ stages:
         arguments: '--build-arg APP_VERSION=$(SetImageTag.IMAGE_TAG)'
 
     # Publish image tag as pipeline artifact so CD stage can use it
-    - script: |
-        mkdir -p $(Build.ArtifactStagingDirectory)/image-info
-        echo "$(SetImageTag.IMAGE_TAG)" > $(Build.ArtifactStagingDirectory)/image-info/image-tag.txt
+    - pwsh: |
+        New-Item -ItemType Directory -Path "$(Build.ArtifactStagingDirectory)/image-info" -Force | Out-Null
+        "$(SetImageTag.IMAGE_TAG)" | Set-Content "$(Build.ArtifactStagingDirectory)/image-info/image-tag.txt"
       displayName: 'Save image tag artifact'
 
     - task: PublishPipelineArtifact@1
