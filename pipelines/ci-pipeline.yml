@@ -75,12 +75,12 @@ stages:
           npm | "$(Agent.OS)"
         path: 'sample-app/node_modules'
 
-    - script: |
+    - pwsh: |
         cd sample-app
         npm ci
       displayName: 'Install dependencies'
 
-    - script: |
+    - pwsh: |
         cd sample-app
         npm run lint
       displayName: 'Run ESLint'
