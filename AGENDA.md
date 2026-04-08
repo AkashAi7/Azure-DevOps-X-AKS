@@ -470,6 +470,7 @@ Participants will:
 - **Challenge 1**: Add a security scanning stage (Trivy/OWASP ZAP) to the CI pipeline
 - **Challenge 2**: Implement blue-green deployment for the production environment
 - **Challenge 3**: Use Copilot Agent Mode to generate a complete observability stack (Prometheus + Grafana K8s manifests)
+- **Challenge 4**: Use MCP servers with Copilot to build an automated incident-response workflow that queries Azure DevOps and AKS in a single prompt (see `labs/lab-06-mcp-devops-aks.md`)
 
 ### Resources & Next Steps (5 min)
 
@@ -480,6 +481,9 @@ Participants will:
 | GitHub Copilot Docs | GitHub Docs | Features and setup |
 | Azure DevOps Labs | labs.azure.com | Additional hands-on labs |
 | GitHub Skills | skills.github.com | Copilot learning paths |
+| Azure DevOps MCP Server | github.com/microsoft/azure-devops-mcp | MCP server for Azure DevOps |
+| Azure MCP Server | github.com/Azure/azure-mcp | MCP server for Azure (AKS) |
+| MCP Specification | spec.modelcontextprotocol.io | Open MCP standard |
 
 ### Q&A
 
