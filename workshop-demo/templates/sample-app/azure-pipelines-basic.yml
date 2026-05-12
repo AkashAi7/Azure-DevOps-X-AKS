@@ -1,0 +1,34 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: 20.x
+    displayName: Use Node.js 20
+
+  - script: npm install
+    displayName: Install dependencies
+
+  - script: npm test
+    displayName: Run unit tests
+
+  - task: ArchiveFiles@2
+    inputs:
+      rootFolderOrFile: $(Build.SourcesDirectory)
+      includeRootFolder: false
+      archiveType: zip
+      archiveFile: $(Build.ArtifactStagingDirectory)/sample-app.zip
+      replaceExistingArchive: true
+    displayName: Archive sample app
+
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)/sample-app.zip
+      artifact: sample-app
+    displayName: Publish pipeline artifact

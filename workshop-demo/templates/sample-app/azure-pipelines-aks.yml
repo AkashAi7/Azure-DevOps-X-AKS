@@ -1,0 +1,25 @@
+trigger: none
+
+parameters:
+  - name: imageTag
+    displayName: Image tag to deploy
+    type: string
+    default: latest
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(azureServiceConnection)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        az aks get-credentials --resource-group $(aksResourceGroup) --name $(aksClusterName) --overwrite-existing
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+        kubectl set image deployment/workshop-sample-app workshop-sample-app=$(acrLoginServer)/$(imageRepository):${{ parameters.imageTag }} -n $(aksNamespace)
+        kubectl rollout status deployment/workshop-sample-app -n $(aksNamespace)
+    displayName: Deploy image from ACR to AKS

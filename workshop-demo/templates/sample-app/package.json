@@ -1,0 +1,13 @@
+{
+  "name": "workshop-sample-app",
+  "version": "1.0.0",
+  "description": "Sample app for the Azure DevOps workshop",
+  "private": true,
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

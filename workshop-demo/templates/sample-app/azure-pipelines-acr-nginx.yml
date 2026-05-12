@@ -1,0 +1,25 @@
+trigger: none
+
+pool:
+  name: Default
+
+variables:
+  imageRepository: workshop-nginx-demo
+  imageTag: $(Build.BuildId)
+  dockerfilePath: Dockerfile.nginx
+
+steps:
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(azureServiceConnection)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        az acr login --name $(acrName)
+        docker build -t $(acrLoginServer)/$(imageRepository):$(imageTag) -f $(dockerfilePath) .
+        docker push $(acrLoginServer)/$(imageRepository):$(imageTag)
+    displayName: Build and push nginx image to ACR
+
+  - script: |
+      echo "Pushed image: $(acrLoginServer)/$(imageRepository):$(imageTag)"
+    displayName: Show pushed image reference
