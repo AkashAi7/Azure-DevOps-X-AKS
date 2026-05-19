@@ -12,6 +12,7 @@ Run the bootstrap flow, create the sample application repository, and validate a
 
 - Azure DevOps organization access
 - Working local Git installation
+- Review [workshop/azure-devops-prerequisites.md](../azure-devops-prerequisites.md) if the project does not yet have hosted agent capacity or the repo has not been created
 
 ## Lab Tasks
 

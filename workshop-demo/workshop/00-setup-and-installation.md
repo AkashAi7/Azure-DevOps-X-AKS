@@ -6,6 +6,10 @@ This guide is optimized for the easiest workshop setup. The goal is to avoid lon
 
 Use an existing Azure DevOps organization plus a shared instructor-managed Azure environment. Participants will create the project, repo, and pipelines through a bootstrap script and then work through the pipeline flow manually before introducing GitHub Copilot.
 
+For a short version you can send directly to a customer, use [workshop/customer-prerequisites-handout.md](customer-prerequisites-handout.md).
+
+For the detailed first-time customer setup checklist, including hosted-versus-self-hosted agent guidance, service connection requirements, ACR prerequisites, and AKS access expectations, use [workshop/azure-devops-prerequisites.md](azure-devops-prerequisites.md).
+
 ## What Participants Need
 
 - A laptop with Windows 11, macOS, or Ubuntu
@@ -112,6 +116,11 @@ Instructor should prepare these shared Azure items before class:
   - `aksNamespace`
   - `imageRepository`
 - Optional environment `aks-dev` with approval enabled for Day 2
+
+Important default for new customers:
+
+- Prefer Microsoft-hosted agents for all sample pipelines unless the customer already operates a self-hosted agent pool for a specific reason.
+- If the customer has only an Azure DevOps project and no build machines, do not ask them to create a self-hosted `Default` pool as the starting point.
 
 Participants or teams can then create these Azure DevOps artifacts by script:
 

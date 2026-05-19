@@ -14,6 +14,7 @@ Create two separate pipelines: one to build and push a container image to ACR an
 - Azure service connection is ready
 - ACR and AKS details are available in the variable group
 - Access to the workshop AKS namespace
+- Review [workshop/azure-devops-prerequisites.md](../azure-devops-prerequisites.md) before this lab if the customer is new to Azure service connections, ACR permissions, or AKS access setup
 
 ## Lab Tasks
 
@@ -32,7 +33,7 @@ Open these files:
 
 Update these values in the pipeline or variable group:
 
-- `azureServiceConnection`
+- `azureSubscription`
 - `acrName`
 - `acrLoginServer`
 - `imageRepository`

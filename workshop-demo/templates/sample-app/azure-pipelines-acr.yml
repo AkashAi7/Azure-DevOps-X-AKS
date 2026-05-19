@@ -1,20 +1,38 @@
-trigger: none
+# ============================================================
+# ACR BUILD & PUSH PIPELINE
+# Steps: build Docker image → push to Azure Container Registry
+# ============================================================
 
+trigger:
+  branches:
+    include:
+      - main
+
+# ---------------------------------------------------------------
+# USER SETTINGS — replace the values below before running
+# ---------------------------------------------------------------
 pool:
-  vmImage: ubuntu-latest
+  name: <agent-name>   # Replace with your self-hosted pool name or use vmImage: for Microsoft-hosted
 
 variables:
-  imageRepository: workshop-sample-app
+  azureSubscription: <service-connection>   # ARM service connection name in Azure DevOps
+  acrName: <acr-name>                       # e.g. myregistry
+  imageRepository: <image-name>             # e.g. my-app
+  dockerfilePath: $(Build.SourcesDirectory)/templates/sample-app/Dockerfile
+  buildContext: $(Build.SourcesDirectory)/templates/sample-app
   imageTag: $(Build.BuildId)
+# ---------------------------------------------------------------
 
 steps:
   - task: AzureCLI@2
+    displayName: Build and push image to ACR
     inputs:
-      azureSubscription: $(azureServiceConnection)
+      azureSubscription: $(azureSubscription)
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        az acr login --name $(acrName)
-        docker build -t $(acrLoginServer)/$(imageRepository):$(imageTag) .
-        docker push $(acrLoginServer)/$(imageRepository):$(imageTag)
-    displayName: Build and push image to ACR
+        az acr build \
+          --registry $(acrName) \
+          --image $(imageRepository):$(imageTag) \
+          --file $(dockerfilePath) \
+          $(buildContext)

@@ -1,25 +1,49 @@
-trigger: none
+# ============================================================
+# AKS DEPLOY PIPELINE
+# Steps: get AKS credentials → apply manifests → update image → verify rollout
+# ============================================================
 
-parameters:
-  - name: imageTag
-    displayName: Image tag to deploy
-    type: string
-    default: latest
+trigger:
+  branches:
+    include:
+      - main
 
+# ---------------------------------------------------------------
+# USER SETTINGS — replace the values below before running
+# ---------------------------------------------------------------
 pool:
-  vmImage: ubuntu-latest
+  name: <agent-name>   # Replace with your self-hosted pool name or use vmImage: for Microsoft-hosted
+
+variables:
+  azureSubscription: <service-connection>   # ARM service connection name in Azure DevOps
+  aksResourceGroup: <resource-group>        # Resource group containing your AKS cluster
+  aksClusterName: <aks-cluster-name>        # AKS cluster name
+  aksNamespace: <namespace>                 # Kubernetes namespace to deploy into
+  acrName: <acr-name>                       # e.g. myregistry
+  imageRepository: <image-name>             # e.g. my-app
+  imageTag: latest                          # Tag of the image to deploy
+  manifestsPath: $(Build.SourcesDirectory)/templates/sample-app/k8s
+# ---------------------------------------------------------------
 
 steps:
   - task: AzureCLI@2
+    displayName: Deploy to AKS
     inputs:
-      azureSubscription: $(azureServiceConnection)
+      azureSubscription: $(azureSubscription)
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        az aks get-credentials --resource-group $(aksResourceGroup) --name $(aksClusterName) --overwrite-existing
-        kubectl apply -f k8s/namespace.yaml
-        kubectl apply -f k8s/deployment.yaml
-        kubectl apply -f k8s/service.yaml
-        kubectl set image deployment/workshop-sample-app workshop-sample-app=$(acrLoginServer)/$(imageRepository):${{ parameters.imageTag }} -n $(aksNamespace)
-        kubectl rollout status deployment/workshop-sample-app -n $(aksNamespace)
-    displayName: Deploy image from ACR to AKS
+        az aks get-credentials \
+          --resource-group $(aksResourceGroup) \
+          --name $(aksClusterName) \
+          --overwrite-existing
+
+        kubectl apply -f $(manifestsPath)/namespace.yaml
+        kubectl apply -f $(manifestsPath)/deployment.yaml
+        kubectl apply -f $(manifestsPath)/service.yaml
+
+        kubectl set image deployment/$(imageRepository) \
+          $(imageRepository)=$(acrName).azurecr.io/$(imageRepository):$(imageTag) \
+          -n $(aksNamespace)
+
+        kubectl rollout status deployment/$(imageRepository) -n $(aksNamespace)

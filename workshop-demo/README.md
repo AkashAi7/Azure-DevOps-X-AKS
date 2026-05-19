@@ -19,6 +19,8 @@ It includes:
 
 ## Quick Start
 
+If you are preparing this workshop for a customer who may only have an Azure DevOps project and no build machines yet, start with [workshop/customer-prerequisites-handout.md](workshop/customer-prerequisites-handout.md) and then use [workshop/azure-devops-prerequisites.md](workshop/azure-devops-prerequisites.md) for the full setup guide.
+
 ### For Workshop Admins
 
 1. Create or use an existing Azure DevOps organization.
@@ -30,6 +32,60 @@ It includes:
 ```
 
 4. Create pipelines from the YAML files in `templates/sample-app` if you are not using the script to create them automatically.
+
+### AKS Cluster Prerequisites (before running the AKS pipeline)
+
+Before `azure-pipelines-aks.yml` can deploy successfully, the following must be in place:
+
+**1. Grant the service principal access to the AKS cluster**
+
+```bash
+az role assignment create \
+  --assignee <service-principal-object-id> \
+  --role "Azure Kubernetes Service Cluster User Role" \
+  --scope /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.ContainerService/managedClusters/<aks-cluster-name>
+```
+
+**2. Attach ACR to AKS so nodes can pull images**
+
+```bash
+az aks update \
+  --name <aks-cluster-name> \
+  --resource-group <resource-group> \
+  --attach-acr <acr-name>
+```
+
+**3. Grant the service principal `edit` rights inside the cluster (Kubernetes RBAC)**
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: devops-deploy
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: edit
+subjects:
+  - kind: User
+    name: <service-principal-object-id>
+    apiGroup: rbac.authorization.k8s.io
+```
+
+Apply with: `kubectl apply -f clusterrolebinding.yaml`
+
+**4. Network access**
+
+The pipeline agent must be able to reach the AKS API server. If the cluster has a private API server, the agent must run inside the VNet or the cluster must have an authorized IP range covering the agent's egress IP.
+
+**Minimum role summary**
+
+| Identity | Scope | Role |
+| --- | --- | --- |
+| Service principal | AKS resource | `Azure Kubernetes Service Cluster User Role` |
+| Service principal | ACR resource | `AcrPull` |
+| AKS kubelet identity | ACR resource | `AcrPull` (via `--attach-acr`) |
+| Service principal | Kubernetes (inside cluster) | `edit` ClusterRoleBinding |
 
 ### For Participants
 
@@ -91,6 +147,8 @@ Day 3 introduces GitHub Copilot plus Azure MCP, Azure DevOps MCP, and AKS MCP. T
 ## Files In This Pack
 
 - [workshop/00-setup-and-installation.md](workshop/00-setup-and-installation.md)
+- [workshop/customer-prerequisites-handout.md](workshop/customer-prerequisites-handout.md)
+- [workshop/azure-devops-prerequisites.md](workshop/azure-devops-prerequisites.md)
 - [workshop/day-1-fundamentals.md](workshop/day-1-fundamentals.md)
 - [workshop/day-2-pipeline-creation.md](workshop/day-2-pipeline-creation.md)
 - [workshop/day-3-aks-mcp-troubleshooting.md](workshop/day-3-aks-mcp-troubleshooting.md)
@@ -162,6 +220,7 @@ Use the nginx pipeline when you want the easiest possible container demo before 
 - Confirm Docker Desktop is running on all lab machines
 - Confirm the sample repo builds locally before Day 1
 - Confirm the service connection can reach Azure resources
+- Replace `REPLACE_WITH_AZURE_RM_SERVICE_CONNECTION` in the sample pipeline YAML files with the actual Azure Resource Manager service connection name for the workshop project
 - Confirm the MCP servers are visible from the host editor before Day 3
 
 ## Suggested Repository Name

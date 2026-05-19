@@ -1,25 +1,42 @@
-trigger: none
+# ============================================================
+# ACR BUILD & PUSH PIPELINE — NGINX
+# Steps: build Nginx Docker image → push to Azure Container Registry
+# ============================================================
 
+trigger:
+  branches:
+    include:
+      - main
+
+# ---------------------------------------------------------------
+# USER SETTINGS — replace the values below before running
+# ---------------------------------------------------------------
 pool:
-  name: Default
+  name: <agent-name>   # Replace with your self-hosted pool name or use vmImage: for Microsoft-hosted
 
 variables:
-  imageRepository: workshop-nginx-demo
+  azureSubscription: <service-connection>   # ARM service connection name in Azure DevOps
+  acrName: <acr-name>                       # e.g. myregistry
+  imageRepository: <image-name>             # e.g. my-nginx-app
+  dockerfilePath: $(Build.SourcesDirectory)/templates/sample-app/Dockerfile.nginx
+  buildContext: $(Build.SourcesDirectory)/templates/sample-app
   imageTag: $(Build.BuildId)
-  dockerfilePath: Dockerfile.nginx
+# ---------------------------------------------------------------
 
 steps:
   - task: AzureCLI@2
+    displayName: Build and push nginx image to ACR
     inputs:
-      azureSubscription: $(azureServiceConnection)
+      azureSubscription: $(azureSubscription)
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        az acr login --name $(acrName)
-        docker build -t $(acrLoginServer)/$(imageRepository):$(imageTag) -f $(dockerfilePath) .
-        docker push $(acrLoginServer)/$(imageRepository):$(imageTag)
-    displayName: Build and push nginx image to ACR
+        az acr build \
+          --registry $(acrName) \
+          --image $(imageRepository):$(imageTag) \
+          --file $(dockerfilePath) \
+          $(buildContext)
 
-  - script: |
-      echo "Pushed image: $(acrLoginServer)/$(imageRepository):$(imageTag)"
+  - bash: |
+      echo "Pushed image: $(acrName).azurecr.io/$(imageRepository):$(imageTag)"
     displayName: Show pushed image reference

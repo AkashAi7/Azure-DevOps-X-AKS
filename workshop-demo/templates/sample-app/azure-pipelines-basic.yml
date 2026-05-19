@@ -1,34 +1,51 @@
+# ============================================================
+# BASIC CI PIPELINE
+# Steps: install deps → run tests → archive → publish artifact
+# ============================================================
+
 trigger:
   branches:
     include:
       - main
 
+# ---------------------------------------------------------------
+# USER SETTINGS — replace the values below before running
+# ---------------------------------------------------------------
 pool:
-  vmImage: ubuntu-latest
+  name: ubuntu-latest   # Replace with your self-hosted pool name or use vmImage: for Microsoft-hosted
+
+variables:
+  nodeVersion: '20.x'                                          # Node.js version to use
+  appDirectory: $(Build.SourcesDirectory)/templates/sample-app  # Path to your app source
+  artifactName: sample-app                                     # Name of the published artifact
+# ---------------------------------------------------------------
+# ---------------------------------------------------------------
 
 steps:
   - task: NodeTool@0
+    displayName: Use Node.js $(nodeVersion)
     inputs:
-      versionSpec: 20.x
-    displayName: Use Node.js 20
+      versionSpec: $(nodeVersion)
 
   - script: npm install
     displayName: Install dependencies
+    workingDirectory: $(appDirectory)
 
   - script: npm test
     displayName: Run unit tests
+    workingDirectory: $(appDirectory)
 
   - task: ArchiveFiles@2
+    displayName: Archive app
     inputs:
-      rootFolderOrFile: $(Build.SourcesDirectory)
+      rootFolderOrFile: $(appDirectory)
       includeRootFolder: false
       archiveType: zip
-      archiveFile: $(Build.ArtifactStagingDirectory)/sample-app.zip
+      archiveFile: $(Build.ArtifactStagingDirectory)/$(artifactName).zip
       replaceExistingArchive: true
-    displayName: Archive sample app
 
   - task: PublishPipelineArtifact@1
+    displayName: Publish artifact
     inputs:
-      targetPath: $(Build.ArtifactStagingDirectory)/sample-app.zip
-      artifact: sample-app
-    displayName: Publish pipeline artifact
+      targetPath: $(Build.ArtifactStagingDirectory)/$(artifactName).zip
+      artifact: $(artifactName)

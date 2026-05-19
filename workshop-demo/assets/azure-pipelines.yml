@@ -40,9 +40,7 @@ stages:
         steps:
           - script: |
               echo "Ensure the agent is already authenticated to Azure and ACR."
-              az acr login --name $(acrName)
-              docker build -t $(containerRegistry)/$(imageRepository):$(tag) -f $(dockerfilePath) .
-              docker push $(containerRegistry)/$(imageRepository):$(tag)
+              az acr build --registry $(acrName) --image $(imageRepository):$(tag) --file $(dockerfilePath) .
             displayName: Build and push image
 
   - stage: Deploy
