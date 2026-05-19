@@ -74,7 +74,8 @@ Fortis-Workshop/
 │   ├── lab-02-ci-pipeline.md
 │   ├── lab-03-cd-aks.md
 │   ├── lab-04-multi-environment.md
-│   └── lab-05-ghcp-agentic.md
+│   ├── lab-05-ghcp-agentic.md
+│   └── lab-06-mcp-devops-aks.md    ← MCP server use cases
 │
 ├── challenges/                      ← Challenge exercises
 │   ├── challenge-01-pipeline.md
@@ -87,12 +88,17 @@ Fortis-Workshop/
 │   ├── demo-02-pipeline-build.md
 │   └── demo-03-ghcp-devops.md
 │
-└── ghcp-agentic/                    ← GitHub Copilot Agentic DevOps
-    ├── 00-introduction.md
-    ├── 01-copilot-in-vscode.md
-    ├── 02-copilot-in-azure-devops.md
-    ├── 03-agentic-pipeline-generation.md
-    └── lab-ghcp-agentic.md
+├── ghcp-agentic/                    ← GitHub Copilot Agentic DevOps
+│   ├── 00-introduction.md
+│   ├── 01-copilot-in-vscode.md
+│   ├── 02-copilot-in-azure-devops.md
+│   ├── 03-agentic-pipeline-generation.md
+│   └── lab-ghcp-agentic.md
+│
+└── mcp/                             ← MCP server configurations and prompts
+    ├── README.md                    ← MCP quick-start and security guide
+    ├── vscode-mcp-config.json       ← Reference VS Code MCP config (env-var based)
+    └── example-prompts.md           ← Curated prompts for Azure DevOps and AKS MCP
 ```
 
 ---
@@ -159,6 +165,7 @@ git clone <this-repo-url>
 - `labs/lab-00-admin-setup.md` -> admin-only pre-work before workshop day
 - `labs/lab-01-setup.md` -> participant onboarding and access validation during kickoff
 - `labs/lab-02-ci-pipeline.md` onward -> shared hands-on participant labs
+- `labs/lab-06-mcp-devops-aks.md` -> optional extended lab on MCP server use cases
 
 ---
 
@@ -185,3 +192,4 @@ After this workshop, participants will be able to:
 - [ ] Implement pipeline security: service connections, variable groups, Key Vault integration
 - [ ] Use GitHub Copilot to generate and explain pipeline YAML and K8s manifests
 - [ ] Understand the concept of Agentic DevOps and AI-assisted workflows
+- [ ] Connect GitHub Copilot to live Azure DevOps and AKS data via MCP servers
